@@ -4,18 +4,38 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL?.trim() || "admin@example.com";
-  const password = process.env.ADMIN_PASSWORD?.trim() || "Change_Me_12345";
+  const username = process.env.ADMIN_USERNAME?.trim() || "admin";
+  const password = process.env.ADMIN_PASSWORD?.trim() || "wzz43441630";
+  const legacyEmail = "admin@example.com";
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (!existing) {
-    const passwordHash = await bcrypt.hash(password, 10);
-    await prisma.user.create({
-      data: { email, name: "Admin", passwordHash },
+  // 删除旧的默认管理员账号（旧的 seed 用邮箱 admin@example.com 创建；
+  // 新 admin 用用户名登录、邮箱为空，按邮箱删除是安全的）
+  const legacy = await prisma.user.deleteMany({
+    where: { email: legacyEmail },
+  });
+  if (legacy.count > 0) {
+    console.log(`Deleted legacy admin: ${legacyEmail} (${legacy.count})`);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const existing = await prisma.user.findFirst({ where: { username } });
+
+  if (existing) {
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { passwordHash, role: "ADMIN", name: username },
     });
-    console.log(`Created admin user: ${email}`);
+    console.log(`Updated admin user: ${username}`);
   } else {
-    console.log(`Admin user already exists: ${email}`);
+    await prisma.user.create({
+      data: {
+        username,
+        name: username,
+        passwordHash,
+        role: "ADMIN",
+      },
+    });
+    console.log(`Created admin user: ${username}`);
   }
 
   const demoCount = await prisma.post.count();

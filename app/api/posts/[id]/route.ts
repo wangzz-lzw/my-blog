@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAdminSession } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, { params }: Params) {
-  const session = await auth();
+  const session = await getAdminSession();
   if (!session) {
-    return NextResponse.json({ error: "未授权" }, { status: 401 });
+    return NextResponse.json({ error: "需要管理员权限" }, { status: 403 });
   }
   const { id } = await params;
 
@@ -74,9 +74,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await auth();
+  const session = await getAdminSession();
   if (!session) {
-    return NextResponse.json({ error: "未授权" }, { status: 401 });
+    return NextResponse.json({ error: "需要管理员权限" }, { status: 403 });
   }
   const { id } = await params;
 

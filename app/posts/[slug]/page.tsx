@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Markdown } from "@/components/Markdown";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/date";
+import { readTime } from "@/lib/read-time";
 import { CommentForm } from "@/components/CommentForm";
+import { GsapReveal } from "@/components/GsapReveal";
+import { ImmersiveToggle } from "@/components/ImmersiveToggle";
+import { ReadingProgress } from "@/components/ReadingProgress";
+import { PostViewBeacon } from "@/components/PostViewBeacon";
 import type { SafeComment } from "@/lib/types";
 
 export const revalidate = 60;
@@ -38,35 +42,52 @@ export default async function PostPage({
   }));
 
   return (
-    <article className="article">
-      <h1>{post.title}</h1>
-      <div className="post-meta">
-        <span>{formatDate(post.publishedAt)}</span>
-        {post.tags.map((t) => (
-          <Link key={t.id} href={`/tags/${t.slug}`} className="tag">
-            {t.name}
+    <GsapReveal>
+      <ReadingProgress />
+      <div className="container container-read">
+      <article className="article post-detail">
+        <header className="post-header" data-reveal>
+          <Link href="/" className="back-link">
+            ← 返回首页
           </Link>
-        ))}
-      </div>
-      <div className="prose">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {post.content}
-        </ReactMarkdown>
-      </div>
-      <section className="comments">
-        <h2>评论（{safeComments.length}）</h2>
-        {safeComments.length === 0 && (
-          <p style={{ color: "var(--muted)" }}>暂无评论。</p>
-        )}
-        {safeComments.map((c) => (
-          <div key={c.id} className="comment">
-            <span className="comment-author">{c.author}</span>
-            <span className="comment-time">{formatDate(c.createdAt)}</span>
-            <p>{c.content}</p>
+          <h1>{post.title}</h1>
+          <div className="post-meta">
+            <span>
+              {formatDate(post.publishedAt)} · {readTime(post.content)} 分钟 · 👁{" "}
+              {post.views || 0}
+            </span>
           </div>
-        ))}
-        <CommentForm slug={post.slug} />
-      </section>
-    </article>
+          {post.tags.length > 0 && (
+            <div className="post-tags">
+              {post.tags.map((t) => (
+                <Link key={t.id} href={`/tags/${t.slug}`} className="tag">
+                  {t.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </header>
+        <div className="prose" data-reveal>
+          <Markdown>{post.content}</Markdown>
+        </div>
+        <section className="comments" data-reveal>
+          <h2>评论（{safeComments.length}）</h2>
+          {safeComments.length === 0 && (
+            <p style={{ color: "var(--muted)" }}>暂无评论。</p>
+          )}
+          {safeComments.map((c) => (
+            <div key={c.id} className="comment">
+              <span className="comment-author">{c.author}</span>
+              <span className="comment-time">{formatDate(c.createdAt)}</span>
+              <p>{c.content}</p>
+            </div>
+          ))}
+          <CommentForm slug={post.slug} postUrl={`/posts/${post.slug}`} />
+        </section>
+      </article>
+      </div>
+      <PostViewBeacon postId={post.id} />
+      <ImmersiveToggle />
+    </GsapReveal>
   );
 }

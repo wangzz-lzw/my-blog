@@ -1,32 +1,80 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export function CommentForm({ slug }: { slug: string }) {
+type SessionUser = {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+};
+
+/**
+ * 评论框（仅登录用户可评论）：
+ * - 未登录：不展示任何输入框，只提示并给出「登录后评论」入口（登录后回到本文）
+ * - 已登录：以登录身份直接提交，无昵称/邮箱字段（服务端同样校验 session）
+ */
+export function CommentForm({
+  slug,
+  postUrl,
+}: {
+  slug: string;
+  postUrl: string;
+}) {
   const router = useRouter();
-  const [author, setAuthor] = useState("");
-  const [email, setEmail] = useState("");
+  // undefined = 检查中；null = 未登录；对象 = 已登录
+  const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
   const [content, setContent] = useState("");
-  const [status, setStatus] = useState<
-    "idle" | "submitting" | "done" | "error"
-  >("idle");
+  const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">(
+    "idle"
+  );
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((d) => setUser(d?.user ?? null))
+      .catch(() => setUser(null));
+  }, []);
+
+  // 加载中：占位，避免表单闪烁
+  if (user === undefined) {
+    return <p className="comment-hint">正在确认登录状态…</p>;
+  }
+
+  // 未登录：只给登录引导，不出现任何输入框
+  if (!user) {
+    return (
+      <div className="comment-login">
+        <p className="comment-login-text">登录后即可发表评论。</p>
+        <Link
+          href={`/login?returnTo=${encodeURIComponent(postUrl)}`}
+          className="btn"
+        >
+          登录 / 注册
+        </Link>
+        <p className="comment-login-note">
+          本站评论需登录账号，杜绝匿名灌水。
+        </p>
+      </div>
+    );
+  }
+
+  const displayName = user.name?.trim() || user.email || "已登录用户";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!author.trim() || !content.trim()) return;
+    if (!content.trim()) return;
     setStatus("submitting");
     try {
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, author, email, content }),
+        body: JSON.stringify({ slug, content }),
       });
       if (res.ok) {
         setStatus("done");
         setContent("");
-        setEmail("");
-        setAuthor("");
         router.refresh();
       } else {
         setStatus("error");
@@ -37,39 +85,37 @@ export function CommentForm({ slug }: { slug: string }) {
   }
 
   if (status === "done") {
-    return <p className="notice info">评论已提交，审核通过后显示。</p>;
+    return (
+      <p className="notice info">评论已提交，审核通过后显示。</p>
+    );
   }
 
   return (
     <form className="comment-form" onSubmit={handleSubmit}>
-      <div className="row">
-        <input
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          placeholder="昵称 *"
-          required
-          maxLength={60}
-        />
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="邮箱（选填）"
-          type="email"
-          maxLength={200}
-        />
-      </div>
+      <p className="comment-as">
+        以 <b>{displayName}</b> 身份评论
+      </p>
+
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="写下你的评论… *"
         required
         maxLength={2000}
+        rows={4}
       />
+
       {status === "error" && (
         <p className="notice error">提交失败，请稍后重试。</p>
       )}
-      <div>
-        <button className="btn" disabled={status === "submitting"} type="submit">
+
+      <div className="comment-form-foot">
+        <span className="comment-hint">{content.length}/2000</span>
+        <button
+          className="btn"
+          disabled={status === "submitting"}
+          type="submit"
+        >
           {status === "submitting" ? "提交中…" : "发表评论"}
         </button>
       </div>

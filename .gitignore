@@ -30,3 +30,9 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations/dev
+
+# npm local cache (sandbox workaround)
+.npm-cache
+
+# local screenshots for visual checks
+.shots/

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAdminSession } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
+  const session = await getAdminSession();
   if (!session) {
-    return NextResponse.json({ error: "未授权" }, { status: 401 });
+    return NextResponse.json({ error: "需要管理员权限" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);

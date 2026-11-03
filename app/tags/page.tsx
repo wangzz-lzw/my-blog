@@ -9,20 +9,37 @@ export default async function TagsPage() {
     orderBy: { name: "asc" },
   });
 
-  if (tags.length === 0) {
-    return <p style={{ color: "var(--muted)", marginTop: "2rem" }}>暂无标签。</p>;
-  }
-
   return (
-    <div>
-      <h1 style={{ marginTop: "1.5rem" }}>全部标签</h1>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", margin: "1.5rem 0" }}>
-        {tags.map((t) => (
-          <Link key={t.id} href={`/tags/${t.slug}`} className="tag" style={{ padding: "0.4rem 0.9rem", fontSize: "0.9rem" }}>
-            {t.name}（{t._count.posts}）
-          </Link>
-        ))}
-      </div>
+    <div className="container container-read page">
+      <header className="page-head" data-reveal>
+        <p className="sysline">
+          &gt; TAGS.SYS 标签索引
+          <span className="cursor">▌</span>
+        </p>
+        <h1 className="page-title">全部标签</h1>
+        <p className="page-sub">
+          共 {tags.length} 个标签，按名称排序。点击标签查看该分类下的文章。
+        </p>
+      </header>
+
+      {tags.length === 0 ? (
+        <p className="empty-note">暂无标签。</p>
+      ) : (
+        <div className="tag-grid" data-reveal>
+          {tags.map((t) => (
+            <Link key={t.id} href={`/tags/${t.slug}`} className="tag-card">
+              <span className="tag-card-name"># {t.name}</span>
+              <span className="tag-card-count">{t._count.posts} 篇</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <p className="page-back">
+        <Link href="/" className="back-link">
+          ← 返回首页
+        </Link>
+      </p>
     </div>
   );
 }

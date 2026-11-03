@@ -28,8 +28,7 @@ export default async function EditPostPage({
   };
 
   return (
-    <div>
-      <h1 style={{ fontSize: "1.5rem", margin: "0 0 1rem" }}>编辑文章</h1>
+    <div className="admin-page">
       <PostEditor post={editorPost} />
     </div>
   );

@@ -49,63 +49,81 @@ export default function AdminCommentsPage() {
   }
 
   if (error) return <p className="notice error">{error}</p>;
-  if (!rows) return <p>加载中…</p>;
 
   return (
-    <div>
-      <h1 style={{ fontSize: "1.5rem", margin: "0 0 1rem" }}>评论管理</h1>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>文章</th>
-            <th>作者</th>
-            <th>内容</th>
-            <th>状态</th>
-            <th>时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((c) => (
-            <tr key={c.id}>
-              <td>{c.post.title}</td>
-              <td>
-                {c.author}
-                {c.email ? ` (${c.email})` : ""}
-              </td>
-              <td style={{ maxWidth: 320 }}>{c.content}</td>
-              <td>{c.approved ? "已通过" : "待审核"}</td>
-              <td>{formatDate(c.createdAt)}</td>
-              <td>
-                {!c.approved && (
-                  <button
-                    className="btn"
-                    onClick={() => setApproved(c.id, true)}
-                  >
-                    通过
-                  </button>
-                )}
-                {c.approved && (
-                  <button
-                    className="btn ghost"
-                    onClick={() => setApproved(c.id, false)}
-                  >
-                    撤销
-                  </button>
-                )}{" "}
-                <button className="btn danger" onClick={() => remove(c.id)}>
-                  删除
-                </button>
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={6}>暂无评论</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+    <div className="admin-page">
+      <header className="admin-page-head">
+        <div>
+          <h1>评论管理</h1>
+          <p className="admin-sub">
+            {rows ? `共 ${rows.length} 条评论，${rows.filter((r) => !r.approved).length} 条待审核。` : "加载中…"}
+          </p>
+        </div>
+      </header>
+
+      {!rows ? (
+        <p className="empty-note">加载中…</p>
+      ) : rows.length === 0 ? (
+        <p className="empty-note">暂无评论。</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>文章</th>
+                <th>作者</th>
+                <th>内容</th>
+                <th>状态</th>
+                <th>时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((c) => (
+                <tr key={c.id}>
+                  <td className="cell-title">{c.post.title}</td>
+                  <td>
+                    {c.author}
+                    {c.email && (
+                      <span className="cell-muted"> {c.email}</span>
+                    )}
+                  </td>
+                  <td className="cell-content">{c.content}</td>
+                  <td>
+                    <span className={`pill ${c.approved ? "ok" : "warn"}`}>
+                      {c.approved ? "已通过" : "待审核"}
+                    </span>
+                  </td>
+                  <td className="cell-muted">{formatDate(c.createdAt)}</td>
+                  <td className="cell-actions">
+                    {!c.approved ? (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => setApproved(c.id, true)}
+                      >
+                        通过
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-sm ghost"
+                        onClick={() => setApproved(c.id, false)}
+                      >
+                        撤销
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-sm danger"
+                      onClick={() => remove(c.id)}
+                    >
+                      删除
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
