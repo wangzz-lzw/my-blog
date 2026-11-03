@@ -1,0 +1,79 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  # ---------- CI：类型与依赖检查 ----------
+  ci:
+    name: 静态检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 生成 Prisma Client
+        run: npx prisma generate
+
+      - name: TypeScript 类型检查
+        run: npx tsc --noEmit
+
+  # ---------- CD：服务器拉取 + Docker 重建 ----------
+  deploy:
+    name: 部署到服务器
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: SSH 部署（git pull + docker compose 重建）
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_BRANCH: master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          command_timeout: 20m
+          script_stop: true
+          envs: DEPLOY_PATH,DEPLOY_BRANCH
+          script: |
+            set -euo pipefail
+
+            cd "$DEPLOY_PATH"
+
+            echo "==> 拉取最新代码"
+            git fetch --prune origin
+            git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
+            git reset --hard "origin/$DEPLOY_BRANCH"
+
+            echo "==> 重建并启动容器（迁移与 seed 在容器启动时自动执行）"
+            docker compose up -d --build --remove-orphans
+            docker image prune -f >/dev/null 2>&1 || true
+
+            echo "==> 健康检查"
+            for i in $(seq 1 40); do
+              if curl -fsS "http://127.0.0.1:3000/api/auth/session" >/dev/null; then
+                echo "健康检查通过 ✅"
+                exit 0
+              fi
+              sleep 3
+            done
+
+            echo "健康检查失败，输出 app 容器日志："
+            docker compose logs --tail=100 app
+            exit 1

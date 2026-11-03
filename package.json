@@ -13,6 +13,9 @@
     "prisma:seed": "tsx --env-file=.env prisma/seed.ts",
     "db:push": "prisma db push"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "ali-oss": "^6.23.0",

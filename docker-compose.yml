@@ -20,11 +20,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # 服务器上的 .env 直接注入容器（OSS / AI / 管理员等所有变量）
+    env_file:
+      - .env
     environment:
+      # 容器内数据库地址覆盖 .env 里的 localhost 配置
       DATABASE_URL: postgresql://blog:${POSTGRES_PASSWORD:-blog_password}@db:5432/blog?schema=public
       AUTH_SECRET: ${AUTH_SECRET:?请先在 .env 设置 AUTH_SECRET}
       AUTH_URL: ${AUTH_URL:-http://localhost}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?请先在 .env 设置 ADMIN_PASSWORD}
     ports:
       - "127.0.0.1:3000:3000"

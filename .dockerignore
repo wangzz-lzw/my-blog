@@ -1,10 +1,14 @@
 node_modules
 .next
 .git
+.github
 .env
 .env*.local
+.shots
+.npm-cache
 install*.log
 Dockerfile
 docker-compose.yml
 deploy
 README.md
+*.md
