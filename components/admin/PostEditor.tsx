@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/slug";
 import { Markdown } from "@/components/Markdown";
@@ -20,9 +26,13 @@ type EditorPost = {
 
 type Mode = "split" | "write" | "preview";
 
+/** 全屏：off=普通；native=浏览器原生全屏；immersive=站内铺满（原生不可用时的回退） */
+type FullscreenMode = "off" | "native" | "immersive";
+
 export function PostEditor({ post }: { post?: EditorPost }) {
   const router = useRouter();
   const isEdit = Boolean(post);
+  const rootRef = useRef<HTMLFormElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const coverFileRef = useRef<HTMLInputElement | null>(null);
 
@@ -41,11 +51,88 @@ export function PostEditor({ post }: { post?: EditorPost }) {
   const [aiMsg, setAiMsg] = useState("");
   const [coverBusy, setCoverBusy] = useState(false);
   const [mode, setMode] = useState<Mode>("split");
+  const [fsMode, setFsMode] = useState<FullscreenMode>("off");
 
   // 窄屏默认只显示编辑区，避免两栏挤在一起
   useEffect(() => {
     if (window.innerWidth < 900) setMode("write");
   }, []);
+
+  /* ---------- 全屏写作 ---------- */
+
+  const enterFullscreen = useCallback(async () => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (document.fullscreenEnabled && typeof el.requestFullscreen === "function") {
+      try {
+        await el.requestFullscreen();
+        setFsMode("native");
+        return;
+      } catch {
+        // 被浏览器拒绝（非用户手势、策略禁止等）→ 退回站内铺满
+      }
+    }
+    setFsMode("immersive");
+  }, []);
+
+  const exitFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        // 已经不在全屏态，忽略
+      }
+    }
+    setFsMode("off");
+  }, []);
+
+  // 原生全屏以 fullscreenchange 为准：用户用系统 Esc / 浏览器 UI 退出时同步界面
+  useEffect(() => {
+    if (fsMode !== "native") return;
+    const onChange = () => {
+      if (!document.fullscreenElement) setFsMode("off");
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, [fsMode]);
+
+  // 站内回退：自己接管 Esc，并锁住页面滚动
+  useEffect(() => {
+    if (fsMode !== "immersive") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFsMode("off");
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.classList.add("editor-fs-lock");
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.classList.remove("editor-fs-lock");
+    };
+  }, [fsMode]);
+
+  // 卸载（保存成功跳转等）时别把浏览器留在全屏壳层里
+  useEffect(() => {
+    const el = rootRef.current;
+    return () => {
+      document.body.classList.remove("editor-fs-lock");
+      if (document.fullscreenElement === el) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, []);
+
+  // 退出全屏后把焦点交还正文
+  const prevFs = useRef<FullscreenMode>("off");
+  useEffect(() => {
+    if (prevFs.current !== "off" && fsMode === "off") {
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    }
+    prevFs.current = fsMode;
+  }, [fsMode]);
+
+  const isFullscreen = fsMode !== "off";
+
+  /* ---------- 编辑动作 ---------- */
 
   const charCount = content.length;
   const lineCount = content ? content.split("\n").length : 0;
@@ -185,10 +272,26 @@ export function PostEditor({ post }: { post?: EditorPost }) {
   );
 
   return (
-    <form className="editor" onSubmit={handleSubmit}>
+    <form
+      ref={rootRef}
+      className={`editor${isFullscreen ? " is-fullscreen" : ""}${
+        fsMode === "immersive" ? " is-immersive" : ""
+      }`}
+      onSubmit={handleSubmit}
+    >
       <div className="editor-head">
         <h1>{isEdit ? "编辑文章" : "写文章"}</h1>
         <div className="editor-actions">
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={enterFullscreen}
+            aria-pressed={isFullscreen}
+            aria-label="进入全屏写作"
+            title="全屏写作（Esc 退出）"
+          >
+            <span aria-hidden="true">⛶</span> 全屏写作
+          </button>
           <label className="switch">
             <input
               type="checkbox"
@@ -287,67 +390,81 @@ export function PostEditor({ post }: { post?: EditorPost }) {
         </div>
       </div>
 
+      {/* 工具栏独立于两个面板之上：切到「预览」时也仍然在，随时能切回来 */}
+      <div className="editor-toolbar">
+        <div className="editor-tools" role="toolbar" aria-label="Markdown 工具栏">
+          <button type="button" title="标题" onClick={() => prefixLine("## ")}>
+            H2
+          </button>
+          <button type="button" title="粗体" onClick={() => wrapSelection("**")}>
+            <b>B</b>
+          </button>
+          <button type="button" title="斜体" onClick={() => wrapSelection("_")}>
+            <i>I</i>
+          </button>
+          <button
+            type="button"
+            title="行内代码"
+            onClick={() => wrapSelection("`", "`", "code")}
+          >
+            {"</>"}
+          </button>
+          <button
+            type="button"
+            title="链接"
+            onClick={() => wrapSelection("[", "](https://)", "链接文字")}
+          >
+            →
+          </button>
+          <button type="button" title="代码块" onClick={() => insertBlock("```ts\n\n```")}>
+            {"```"}
+          </button>
+          <button type="button" title="引用" onClick={() => prefixLine("> ")}>
+            &gt;
+          </button>
+          <button type="button" title="列表" onClick={() => prefixLine("- ")}>
+            ·
+          </button>
+        </div>
+
+        <div className="editor-toolbar-right">
+          <div className="editor-modes" role="tablist" aria-label="编辑器视图">
+            {(
+              [
+                ["write", "编辑"],
+                ["split", "分屏"],
+                ["preview", "预览"],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                className={mode === m ? "active" : ""}
+                onClick={() => setMode(m)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {isFullscreen && (
+            <button
+              type="button"
+              className="btn btn-sm ghost editor-fs-exit"
+              onClick={exitFullscreen}
+              aria-pressed={true}
+              aria-label="退出全屏"
+              title="退出全屏（Esc）"
+            >
+              <span aria-hidden="true">⤡</span> 退出全屏
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className={`editor-split mode-${mode}`}>
         <section className="editor-write">
-          <div className="editor-toolbar">
-            <div className="editor-tools" role="toolbar" aria-label="Markdown 工具栏">
-              <button type="button" title="标题" onClick={() => prefixLine("## ")}>
-                H2
-              </button>
-              <button type="button" title="粗体" onClick={() => wrapSelection("**")}>
-                <b>B</b>
-              </button>
-              <button type="button" title="斜体" onClick={() => wrapSelection("_")}>
-                <i>I</i>
-              </button>
-              <button
-                type="button"
-                title="行内代码"
-                onClick={() => wrapSelection("`", "`", "code")}
-              >
-                {"</>"}
-              </button>
-              <button
-                type="button"
-                title="链接"
-                onClick={() => wrapSelection("[", "](https://)", "链接文字")}
-              >
-                →
-              </button>
-              <button
-                type="button"
-                title="代码块"
-                onClick={() => insertBlock("```ts\n\n```")}
-              >
-                {"```"}
-              </button>
-              <button type="button" title="引用" onClick={() => prefixLine("> ")}>
-                &gt;
-              </button>
-              <button type="button" title="列表" onClick={() => prefixLine("- ")}>
-                ·
-              </button>
-            </div>
-            <div className="editor-modes" role="tablist" aria-label="编辑器视图">
-              {(
-                [
-                  ["write", "编辑"],
-                  ["split", "分屏"],
-                  ["preview", "预览"],
-                ] as const
-              ).map(([m, label]) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={mode === m ? "active" : ""}
-                  onClick={() => setMode(m)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <textarea
             ref={textareaRef}
             className="editor-textarea"

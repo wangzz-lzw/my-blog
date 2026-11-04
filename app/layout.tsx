@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
 import { HeaderAuth } from "@/components/HeaderAuth";
+import { SiteNav } from "@/components/SiteNav";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { SITE_NAME } from "@/lib/site";
 import "./globals.css";
@@ -10,6 +11,7 @@ import "./redesign.css";
 export const metadata: Metadata = {
   title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
   description: "个人博客",
+  icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }] },
 };
 
 export default function RootLayout({
@@ -28,26 +30,33 @@ export default function RootLayout({
         </Script>
         <header id="top" className="site-header">
           <div className="container">
-            <Link href="/" className="site-brand glitch" data-text={SITE_NAME}>
-              {SITE_NAME}
+            <Link href="/" className="site-brand" aria-label={`${SITE_NAME} 首页`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/favicon.svg"
+                alt=""
+                width={22}
+                height={22}
+                className="brand-mark"
+              />
+              <span className="glitch" data-text={SITE_NAME}>
+                {SITE_NAME}
+              </span>
             </Link>
-            <nav className="site-nav">
-              <Link href="/">首页</Link>
-              <Link href="/tags">标签</Link>
-              <ThemeSwitcher />
+            <nav className="site-nav" aria-label="站点导航">
+              <SiteNav />
               <HeaderAuth />
+              <ThemeSwitcher />
             </nav>
           </div>
         </header>
         <main className="site-main">{children}</main>
         <footer className="site-footer">
           <div className="container">
-            <span>© {new Date().getFullYear()} {SITE_NAME}</span>
-            <nav className="footer-links">
-              <Link href="/tags">标签</Link>
-              <Link href="/admin">管理</Link>
-              <a href="#top">回到顶部 ↑</a>
-            </nav>
+            <span>
+              © {new Date().getFullYear()} {SITE_NAME}
+            </span>
+            <a href="#top">回到顶部 ↑</a>
           </div>
         </footer>
       </body>

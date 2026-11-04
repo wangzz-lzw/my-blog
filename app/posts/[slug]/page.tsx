@@ -83,7 +83,13 @@ export default async function PostPage({
             ← 返回首页
           </Link>
           <h1>{post.title}</h1>
-          {post.tags.length > 0 && (
+          {post.excerpt && <p className="post-dek">{post.excerpt}</p>}
+        </header>
+        <div className="prose" data-reveal>
+          <Markdown>{post.content}</Markdown>
+        </div>
+        {post.tags.length > 0 && (
+          <div className="post-foot">
             <div className="post-tags">
               {post.tags.map((t) => (
                 <Link key={t.id} href={`/tags/${t.slug}`} className="tag">
@@ -91,11 +97,8 @@ export default async function PostPage({
                 </Link>
               ))}
             </div>
-          )}
-        </header>
-        <div className="prose" data-reveal>
-          <Markdown>{post.content}</Markdown>
-        </div>
+          </div>
+        )}
         <section className="comments" data-reveal>
           <h2>评论（{safeComments.length}）</h2>
           {safeComments.length === 0 && (

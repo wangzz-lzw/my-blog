@@ -79,10 +79,22 @@ body {
 }
 
 .site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   font-size: 0.98rem;
   font-weight: 500;
   letter-spacing: 0.18em;
   text-shadow: none;
+}
+
+/* 站点标记：终端提示符（caret + 光标块）的方形缩略 */
+.brand-mark {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  flex: 0 0 auto;
 }
 
 /* 故障动效降为极低频率的微光，不再周期性抖动整块文字 */
@@ -114,6 +126,15 @@ body {
 }
 
 .site-nav > a:hover::before {
+  right: 0;
+}
+
+/* 当前所在页：常亮下划线，让"我在哪"一眼可见 */
+.site-nav > a.is-active {
+  color: var(--fg-bright);
+}
+
+.site-nav > a.is-active::before {
   right: 0;
 }
 
@@ -557,6 +578,53 @@ body {
   color: var(--ink-2);
 }
 
+/* 导语：把摘要放到标题下，读者先知道这篇在讲什么，再决定投不投入 */
+.post-header .post-dek {
+  grid-column: 2;
+  margin: 0.95rem 0 0;
+  max-width: 32em;
+  font-size: 1rem;
+  line-height: 1.9;
+  color: var(--ink-2);
+}
+
+/* 文末：标签退到正文之后，标题区只留"这是什么" */
+.post-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.1rem;
+  max-width: var(--measure);
+  margin-top: 2.8rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.post-foot .post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+}
+
+.post-foot .tag {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-2);
+}
+
+.post-foot .tag::before {
+  content: "#";
+  margin-right: 0.1rem;
+  color: var(--ink-3);
+}
+
+.post-foot .tag:hover {
+  color: var(--accent);
+}
+
 .post-header .post-tags {
   grid-column: 2;
   display: flex;
@@ -728,10 +796,13 @@ body {
 }
 
 /* 评论区 */
+/* 评论区：不要卡片，只要一条分隔线（覆盖旧版的边框+左侧粗线） */
 .comments {
   max-width: var(--measure);
-  margin-top: 3.5rem;
-  padding-top: 2rem;
+  margin-top: 3.2rem;
+  padding: 2rem 0 0;
+  background: none;
+  border: none;
   border-top: 1px solid var(--rule-soft);
 }
 
@@ -742,15 +813,29 @@ body {
   font-weight: 400;
   letter-spacing: 0.06em;
   color: var(--ink-2);
+  text-shadow: none;
 }
 
 .comment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem 1rem;
   padding: 1.1rem 0;
   border-bottom: 1px solid var(--rule-soft);
 }
 
+.comment p {
+  grid-column: 1 / -1;
+}
+
 .comment-author {
   font-size: 0.86rem;
+  color: var(--fg-bright);
+}
+
+/* 覆盖旧版把作者名当强调色的写法：这里只需要一个人名，不需要第二处高亮 */
+.comment .comment-author,
+.comments .comment-author {
   color: var(--fg-bright);
 }
 
@@ -1012,6 +1097,104 @@ textarea::placeholder {
   color: var(--ink-2);
 }
 
+/* ---------- 后台编辑器 ---------- */
+
+.editor {
+  gap: 1rem;
+}
+
+/* 工具栏提到两个面板之上：切到「预览」时它仍然在，随时能切回来 */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.editor-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* 单栏视图占满整行，而不是缩在左半格里 */
+.editor-split.mode-write,
+.editor-split.mode-preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 全屏：原生全屏与站内回退共用这一套内部布局 */
+.editor.is-fullscreen {
+  gap: 0.7rem;
+  height: 100dvh;
+  padding: 0.9rem 1.1rem;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.editor.is-fullscreen .editor-head,
+.editor.is-fullscreen .editor-meta,
+.editor.is-fullscreen .notice {
+  display: none;
+}
+
+.editor.is-fullscreen .editor-toolbar {
+  flex: 0 0 auto;
+}
+
+.editor.is-fullscreen .editor-split {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.editor.is-fullscreen .editor-write,
+.editor.is-fullscreen .editor-preview {
+  height: 100%;
+  min-height: 0;
+  position: static;
+  max-height: none;
+  overflow: hidden;
+}
+
+.editor.is-fullscreen .editor-textarea {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  resize: none;
+}
+
+.editor.is-fullscreen .editor-preview .preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 站内回退：自己定位，并锁住页面滚动 */
+.editor.is-immersive {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+body.editor-fs-lock {
+  overflow: hidden;
+}
+
+/* 原生全屏：遮罩跟随主题，浅色主题下不再是纯黑 */
+.editor:fullscreen {
+  background: var(--bg);
+}
+
+.editor:fullscreen::backdrop {
+  background: var(--bg-deep);
+}
+
 /* ---------- 页脚 ---------- */
 
 .site-footer {
@@ -1053,6 +1236,11 @@ textarea::placeholder {
 
 .site-footer .footer-sysline {
   display: none;
+}
+
+/* 文章页右下角有「沉浸阅读」浮钮，别让它压住页脚右侧的回到顶部 */
+body:has(.immersive-btn) .site-footer .container {
+  padding-right: 9.5rem;
 }
 
 /* 亮色下把背景网格压淡一档，避免变成方格纸 */
@@ -1192,6 +1380,7 @@ textarea::placeholder {
 
   .post-header .back-link,
   .post-header h1,
+  .post-header .post-dek,
   .post-header .post-meta,
   .post-header .post-tags {
     grid-column: 1;
