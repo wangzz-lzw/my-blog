@@ -54,6 +54,27 @@ jobs:
           echo "SSH_KEY 含 BEGIN: $(printf '%s' "$KEY" | grep -c 'BEGIN OPENSSH PRIVATE KEY' || true)"
           echo "SSH_KEY 含 CRLF: $(printf '%s' "$KEY" | tr -cd '\r' | wc -c)"
 
+      - name: 网络连通性检查
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
+        run: |
+          set -uo pipefail
+          echo "目标: ${SSH_HOST}:${SSH_PORT}"
+          echo "⚠️ SSH_HOST 必须是公网 IP（华为云控制台里的『公网IP』），不能是 172.x/10.x 内网 IP 或主机名"
+
+          if getent hosts "$SSH_HOST" >/dev/null 2>&1; then
+            echo "DNS 解析: $(getent hosts "$SSH_HOST" | awk '{print $1}' | head -1)"
+          else
+            echo "❌ 无法解析主机名（请填公网 IP，别填 hcss-ecs-xxx 这类主机名）"
+          fi
+
+          if timeout 8 bash -c "</dev/tcp/${SSH_HOST}/${SSH_PORT}" 2>/dev/null; then
+            echo "✅ TCP ${SSH_PORT} 可达"
+          else
+            echo "❌ TCP ${SSH_PORT} 不通：检查公网 IP、安全组、服务器防火墙(ufw/firewalld)"
+          fi
+
       - name: 准备私钥（自动去 CRLF）
         env:
           KEY: ${{ secrets.SSH_KEY }}
@@ -78,6 +99,7 @@ jobs:
 
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" \
             -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
             -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=15 \
             "${SSH_USER}@${SSH_HOST}" \
