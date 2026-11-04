@@ -7,6 +7,9 @@ node_modules
 .shots
 .npm-cache
 install*.log
+*.tar.gz
+openspec
+scripts
 Dockerfile
 docker-compose.yml
 deploy

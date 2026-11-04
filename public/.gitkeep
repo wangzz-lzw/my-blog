@@ -1,0 +1,1 @@
+# 占位文件：确保 public/ 目录被 Git 跟踪（Dockerfile 需要 COPY /app/public）

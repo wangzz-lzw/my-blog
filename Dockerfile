@@ -17,6 +17,8 @@ RUN apk add --no-cache postgresql postgresql-client && \
     (getent passwd postgres >/dev/null || adduser -D -s /bin/sh postgres)
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# 兼容旧仓库没有 public/ 目录的情况（Docker COPY 对缺失目录会报错）
+RUN mkdir -p /app/public
 RUN mkdir -p /tmp/pgdata && chown -R postgres:postgres /tmp/pgdata && \
     su postgres -s /bin/sh -c "initdb -D /tmp/pgdata -A trust -U postgres" && \
     su postgres -s /bin/sh -c "pg_ctl -D /tmp/pgdata -o '-p 5433 -k /tmp' -w start" && \
