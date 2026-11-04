@@ -10,26 +10,22 @@ export default async function TagsPage() {
   });
 
   return (
-    <div className="container container-read page">
-      <header className="page-head" data-reveal>
-        <p className="sysline">
-          &gt; TAGS.SYS 标签索引
-          <span className="cursor">▌</span>
-        </p>
-        <h1 className="page-title">全部标签</h1>
-        <p className="page-sub">
-          共 {tags.length} 个标签，按名称排序。点击标签查看该分类下的文章。
+    <div className="shell page">
+      <header className="page-head">
+        <h1 className="index-title">标签索引</h1>
+        <p className="index-sub">
+          共 {tags.length} 个标签，按名称排序。点开任意一个，可以看到该分类下的全部文章。
         </p>
       </header>
 
       {tags.length === 0 ? (
-        <p className="empty-note">暂无标签。</p>
+        <p className="entry-empty">还没有标签。</p>
       ) : (
-        <div className="tag-grid" data-reveal>
+        <div className="tag-index">
           {tags.map((t) => (
-            <Link key={t.id} href={`/tags/${t.slug}`} className="tag-card">
-              <span className="tag-card-name"># {t.name}</span>
-              <span className="tag-card-count">{t._count.posts} 篇</span>
+            <Link key={t.id} href={`/tags/${t.slug}`} className="tag-row">
+              <span className="tag-row-name">{t.name}</span>
+              <span className="tag-row-count">{t._count.posts} 篇</span>
             </Link>
           ))}
         </div>

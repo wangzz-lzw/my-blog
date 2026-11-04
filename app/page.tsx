@@ -1,38 +1,43 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/date";
 import { readTime } from "@/lib/read-time";
 import type { PostWithTags } from "@/lib/types";
 import { GsapReveal } from "@/components/GsapReveal";
 
 export const revalidate = 60;
 
+/** 首页日期栏用的「日 / 年.月」两行写法 */
+function stamp(d: Date | null) {
+  const date = d ?? new Date();
+  return {
+    day: String(date.getDate()).padStart(2, "0"),
+    ym: `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}`,
+  };
+}
+
 export default async function HomePage() {
-  const [posts, tagCount, commentCount, allTags, popular, latestComments] =
-    await Promise.all([
-      prisma.post.findMany({
-        where: { published: true },
-        include: { tags: true },
-        orderBy: { publishedAt: "desc" },
-      }),
-      prisma.tag.count(),
-      prisma.comment.count(),
-      prisma.tag.findMany(),
-      // 热门榜：取最新 10 篇，再在 JS 里按浏览量排序取前 5。
-      // 不带 views 的 select/orderBy —— 旧版生成客户端的运行时 schema 尚无 views 字段，
-      // 全量字段返回让新旧客户端都可用；views 缺失（旧客户端）按 0 处理。
-      prisma.post.findMany({
-        where: { published: true },
-        orderBy: { publishedAt: "desc" },
-        take: 10,
-      }),
-      prisma.comment.findMany({
-        where: { approved: true },
-        orderBy: { createdAt: "desc" },
-        take: 3,
-        include: { post: { select: { title: true, slug: true } } },
-      }),
-    ]);
+  const [posts, allTags, popular, latestComments] = await Promise.all([
+    prisma.post.findMany({
+      where: { published: true },
+      include: { tags: true },
+      orderBy: { publishedAt: "desc" },
+    }),
+    prisma.tag.findMany(),
+    // 热门榜：取最新 10 篇，再在 JS 里按浏览量排序取前 5。
+    // 不带 views 的 select/orderBy —— 旧版生成客户端的运行时 schema 尚无 views 字段，
+    // 全量字段返回让新旧客户端都可用；views 缺失（旧客户端）按 0 处理。
+    prisma.post.findMany({
+      where: { published: true },
+      orderBy: { publishedAt: "desc" },
+      take: 10,
+    }),
+    prisma.comment.findMany({
+      where: { approved: true },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      include: { post: { select: { title: true, slug: true } } },
+    }),
+  ]);
 
   // 标签云：JS 侧统计已发布文章数（复用已加载的 tags，无额外查询）
   const countMap = new Map<string, number>();
@@ -52,230 +57,168 @@ export default async function HomePage() {
     .slice(0, 5);
 
   const [featured, ...rest] = posts as PostWithTags[];
-  const latestDate = featured ? formatDate(featured.publishedAt) : null;
 
   return (
     <GsapReveal>
-      <div className="container container-home">
-        <div className="home-grid">
-          <div className="home-main">
-            {/* 英雄区：终端横幅 + 一句话介绍 + 统计 */}
-            <section className="home-hero" data-reveal>
-              <p className="sysline">
-                &gt; BLOG.SYS 在线
-                <span className="cursor">▌</span>
-              </p>
-              <p className="home-tagline">
-                记录开发笔记与生活随想。阅读优先，无广告，评论需登录。
-              </p>
-              <div className="stat-chips">
-                <span className="stat-chip">
-                  <b>{posts.length}</b> 篇文章
-                </span>
-                <Link className="stat-chip" href="/tags">
-                  <b>{tagCount}</b> 个标签
-                </Link>
-                <span className="stat-chip">
-                  <b>{commentCount}</b> 条评论
-                </span>
-                {latestDate && (
-                  <span className="stat-chip stat-chip-plain">
-                    最近更新 {latestDate}
-                  </span>
-                )}
+      <div className="sheet">
+        <div className="ledger">
+          <p className="ledger-intro" data-reveal>
+            开发笔记与生活随想。按时间倒排，越新的越靠上。
+          </p>
+          {featured ? (
+            <article className="entry entry--lead" data-reveal>
+              <div className="entry-when">
+                <span className="entry-day">{stamp(featured.publishedAt).day}</span>
+                <span className="entry-ym">{stamp(featured.publishedAt).ym}</span>
               </div>
-            </section>
-
-            {/* 头条文章：最新一篇 */}
-            {featured ? (
-              <article className="featured-post" data-reveal>
-                <div className="featured-cover" aria-hidden="true">
-                  {featured.title.charAt(0)}
-                </div>
-                <div className="featured-body">
-                  <span className="badge">FEATURED · 最新</span>
-                  <h2>
-                    <Link href={`/posts/${featured.slug}`}>
-                      {featured.title}
-                    </Link>
-                  </h2>
-                  {featured.excerpt && (
-                    <p className="post-excerpt">{featured.excerpt}</p>
-                  )}
-                  <div className="post-meta">
-                    <span>{formatDate(featured.publishedAt)}</span>
-                    <span>{readTime(featured.content)} 分钟</span>
-                    <span>👁 {featured.views || 0}</span>
-                  </div>
+              <div className="entry-body">
+                {featured.cover && (
+                  <Link
+                    href={`/posts/${featured.slug}`}
+                    className="entry-figure"
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={featured.cover} alt="" />
+                  </Link>
+                )}
+                <h2 className="entry-title">
+                  <Link href={`/posts/${featured.slug}`}>{featured.title}</Link>
+                </h2>
+                {featured.excerpt && (
+                  <p className="entry-excerpt">{featured.excerpt}</p>
+                )}
+                <p className="entry-meta">
+                  <span>{readTime(featured.content)} 分钟</span>
+                  <span>
+                    <span className="num">{featured.views || 0}</span> 次浏览
+                  </span>
                   {featured.tags.length > 0 && (
-                    <div className="tag-row">
+                    <span className="entry-tags">
                       {featured.tags.map((t) => (
-                        <Link
-                          key={t.id}
-                          href={`/tags/${t.slug}`}
-                          className="tag"
-                        >
+                        <Link key={t.id} href={`/tags/${t.slug}`}>
                           {t.name}
                         </Link>
                       ))}
-                    </div>
+                    </span>
                   )}
-                  <Link
-                    className="read-more"
-                    href={`/posts/${featured.slug}`}
-                  >
-                    阅读全文 →
-                  </Link>
-                </div>
-              </article>
-            ) : (
-              <section className="home-empty" data-reveal>
-                <p className="sysline">&gt; 还没有已发布的文章。</p>
-                <p className="home-empty-text">
-                  登录后台发布第一篇，这里就会出现内容。
                 </p>
-              </section>
-            )}
+              </div>
+            </article>
+          ) : (
+            <p className="entry-empty">
+              还没有已发布的文章。登录后台写下第一篇，这里就会出现内容。
+            </p>
+          )}
 
-            {/* 其余文章 */}
-            {rest.length > 0 && (
-              <section className="section" data-reveal>
-                <div className="section-head">
-                  <h2>更多文章</h2>
-                  <Link className="view-all" href="/tags">
-                    全部标签 →
-                  </Link>
-                </div>
-                <ul className="post-list compact">
-                  {rest.map((post) => (
-                    <li key={post.id} data-reveal>
-                      <div className="row-head">
-                        <h3>
-                          <Link href={`/posts/${post.slug}`}>{post.title}</Link>
-                        </h3>
-                        <span className="row-meta">
-                          {formatDate(post.publishedAt)} ·{" "}
-                          {readTime(post.content)} 分钟 · 👁 {post.views || 0}
-                        </span>
-                      </div>
-                      {post.excerpt && (
-                        <p className="post-excerpt">{post.excerpt}</p>
-                      )}
-                      {post.tags.length > 0 && (
-                        <div className="tag-row">
-                          {post.tags.map((t) => (
-                            <Link
-                              key={t.id}
-                              href={`/tags/${t.slug}`}
-                              className="tag"
-                            >
-                              {t.name}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* 只有一篇时的收尾引导，避免大片留白 */}
-            {featured && rest.length === 0 && (
-              <section className="home-empty" data-reveal>
-                <p className="sysline">
-                  &gt; 更多内容正在路上 — 先从标签翻翻旧文。
+          {rest.map((post) => (
+            <article className="entry" key={post.id}>
+              <div className="entry-when">
+                <span className="entry-day">{stamp(post.publishedAt).day}</span>
+                <span className="entry-ym">{stamp(post.publishedAt).ym}</span>
+              </div>
+              <div className="entry-body">
+                <h2 className="entry-title">
+                  <Link href={`/posts/${post.slug}`}>{post.title}</Link>
+                </h2>
+                {post.excerpt && (
+                  <p className="entry-excerpt">{post.excerpt}</p>
+                )}
+                <p className="entry-meta">
+                  <span>{readTime(post.content)} 分钟</span>
+                  <span>
+                    <span className="num">{post.views || 0}</span> 次浏览
+                  </span>
+                  {post.tags.length > 0 && (
+                    <span className="entry-tags">
+                      {post.tags.map((t) => (
+                        <Link key={t.id} href={`/tags/${t.slug}`}>
+                          {t.name}
+                        </Link>
+                      ))}
+                    </span>
+                  )}
                 </p>
-                <div className="home-empty-actions">
-                  <Link className="btn ghost" href="/tags">
-                    按标签浏览 →
-                  </Link>
-                  <Link className="btn ghost" href="/posts/welcome">
-                    重读这篇 →
-                  </Link>
-                </div>
-              </section>
-            )}
-          </div>
+              </div>
+            </article>
+          ))}
 
-          <aside className="home-side" aria-label="侧边栏">
-            <div className="widget" data-reveal>
-              <h3 className="widget-title">&gt; 标签</h3>
-              {tagCloud.length === 0 ? (
-                <p className="widget-empty">暂无标签</p>
-              ) : (
-                <div className="tag-cloud">
-                  {tagCloud.map((t) => (
-                    <Link
-                      key={t.id}
-                      href={`/tags/${t.slug}`}
-                      className="tag-chip"
-                    >
-                      {t.name}
-                      <span className="tag-count">{t.count}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="widget" data-reveal>
-              <h3 className="widget-title">&gt; 热门</h3>
-              {popularTop.length === 0 ? (
-                <p className="widget-empty">暂无文章</p>
-              ) : (
-                <ol className="rank-list">
-                  {popularTop.map((p, i) => (
-                    <li key={p.id}>
-                      <span className="rank-no">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span className="rank-text">
-                        <Link href={`/posts/${p.slug}`}>{p.title}</Link>
-                        <span className="rank-meta">👁 {p.views || 0} 次浏览</span>
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-
-            <div className="widget" data-reveal>
-              <h3 className="widget-title">&gt; 最新评论</h3>
-              {latestComments.length === 0 ? (
-                <p className="widget-empty">
-                  还没有评论，登录后去文章页留言。
-                </p>
-              ) : (
-                <div className="side-comment-list">
-                  {latestComments.map((c) => (
-                    <div key={c.id} className="side-comment">
-                      <div className="side-comment-head">
-                        <span className="comment-author">{c.author}</span>
-                        <span className="comment-time">
-                          {formatDate(c.createdAt)}
-                        </span>
-                      </div>
-                      <p>
-                        {c.content.slice(0, 48)}
-                        {c.content.length > 48 && "…"}
-                      </p>
-                      <Link href={`/posts/${c.post.slug}`}>查看原文 →</Link>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="widget about-widget" data-reveal>
-              <h3 className="widget-title">&gt; 关于本站</h3>
-              <p className="widget-text">
-                一个个人博客：记录开发笔记与生活随想。赛博朋克皮肤，阅读优先。
-              </p>
-              <p className="widget-powered">&gt; next.js · postgresql · gsap</p>
-            </div>
-          </aside>
+          {featured && rest.length === 0 && (
+            <p className="ledger-end">
+              更多文章会按时间排在这条线下面。
+            </p>
+          )}
         </div>
+
+        <aside className="rail" aria-label="侧栏" data-reveal>
+          <section className="rail-block">
+            <h3>标签</h3>
+            {tagCloud.length === 0 ? (
+              <p className="rail-note">还没有标签。</p>
+            ) : (
+              <ul className="rail-tags">
+                {tagCloud.map((t) => (
+                  <li key={t.id}>
+                    <Link href={`/tags/${t.slug}`}>
+                      {t.name}
+                      <span className="n">{t.count}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rail-block">
+            <h3>被读得最多</h3>
+            {popularTop.length === 0 ? (
+              <p className="rail-note">还没有浏览记录。</p>
+            ) : (
+              <ol className="rail-rank">
+                {popularTop.map((p) => (
+                  <li key={p.id}>
+                    <Link href={`/posts/${p.slug}`}>{p.title}</Link>
+                    <span className="n">{p.views || 0}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section className="rail-block">
+            <h3>最近评论</h3>
+            {latestComments.length === 0 ? (
+              <p className="rail-note">还没有评论。登录后可以在文章页留言。</p>
+            ) : (
+              latestComments.map((c) => (
+                <div className="rail-comment" key={c.id}>
+                  <div className="rail-comment-head">
+                    <span className="who">{c.author}</span>
+                    <span>{stamp(c.createdAt).ym}</span>
+                  </div>
+                  <p>
+                    {c.content.slice(0, 40)}
+                    {c.content.length > 40 && "…"}
+                  </p>
+                  <Link href={`/posts/${c.post.slug}`}>在原文下</Link>
+                </div>
+              ))
+            )}
+          </section>
+
+          <section className="rail-block">
+            <h3>关于</h3>
+            <p className="rail-note">
+              一个个人博客：开发笔记与生活随想，阅读优先，无广告，评论需登录。
+            </p>
+            <p className="rail-sys">
+              next.js · postgresql · gsap
+              <br />
+              <b>{posts.length}</b> 篇文章 / <b>{tagCloud.length}</b> 个在用标签
+            </p>
+          </section>
+        </aside>
       </div>
     </GsapReveal>
   );

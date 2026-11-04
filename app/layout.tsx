@@ -5,6 +5,7 @@ import { HeaderAuth } from "@/components/HeaderAuth";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { SITE_NAME } from "@/lib/site";
 import "./globals.css";
+import "./redesign.css";
 
 export const metadata: Metadata = {
   title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
@@ -41,20 +42,12 @@ export default function RootLayout({
         <main className="site-main">{children}</main>
         <footer className="site-footer">
           <div className="container">
-            <div className="footer-row">
-              <span>© {new Date().getFullYear()} {SITE_NAME}</span>
-              <nav className="footer-links">
-                <Link href="/tags">标签</Link>
-                <Link href="/admin">管理</Link>
-                <a href="#top">回到顶部 ↑</a>
-              </nav>
-            </div>
-            <div className="footer-sysline">
-              <span>&gt; powered by next.js · postgresql · gsap</span>
-              <span className="footer-status">
-                在线<i className="pulse-dot" />
-              </span>
-            </div>
+            <span>© {new Date().getFullYear()} {SITE_NAME}</span>
+            <nav className="footer-links">
+              <Link href="/tags">标签</Link>
+              <Link href="/admin">管理</Link>
+              <a href="#top">回到顶部 ↑</a>
+            </nav>
           </div>
         </footer>
       </body>

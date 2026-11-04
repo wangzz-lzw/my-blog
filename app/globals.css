@@ -989,6 +989,7 @@ main.container:has(.home-grid) {
   gap: 1.25rem;
   position: sticky;
   top: 76px;
+  margin-top: 1.5rem;
 }
 
 /* 侧栏小部件卡 */

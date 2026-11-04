@@ -172,7 +172,7 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
   const isDataUrl = avatar.startsWith("data:");
 
   return (
-    <div className="container container-read page">
+    <div className="shell page">
       <header className="page-head" data-reveal>
         <p className="sysline">
           &gt; PROFILE.SYS 个人资料

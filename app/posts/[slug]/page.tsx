@@ -62,19 +62,27 @@ export default async function PostPage({
   return (
     <GsapReveal>
       <ReadingProgress />
-      <div className="container container-read">
+      <div className="article-shell">
       <article className="article post-detail">
         <header className="post-header" data-reveal>
+          <div className="post-when">
+            <span className="d">
+              {String((post.publishedAt ?? post.createdAt).getDate()).padStart(2, "0")}
+            </span>
+            <span className="m">
+              {(post.publishedAt ?? post.createdAt).getFullYear()}.
+              {String((post.publishedAt ?? post.createdAt).getMonth() + 1).padStart(2, "0")}
+            </span>
+            <span className="extra">
+              {readTime(post.content)} 分钟
+              <br />
+              {post.views || 0} 次浏览
+            </span>
+          </div>
           <Link href="/" className="back-link">
             ← 返回首页
           </Link>
           <h1>{post.title}</h1>
-          <div className="post-meta">
-            <span>
-              {formatDate(post.publishedAt)} · {readTime(post.content)} 分钟 · 👁{" "}
-              {post.views || 0}
-            </span>
-          </div>
           {post.tags.length > 0 && (
             <div className="post-tags">
               {post.tags.map((t) => (
