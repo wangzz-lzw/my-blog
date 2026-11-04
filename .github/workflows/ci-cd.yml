@@ -36,44 +36,75 @@ jobs:
     name: 部署到服务器
     needs: ci
     runs-on: ubuntu-latest
-    environment: production
     steps:
-      - name: SSH 部署（git pull + docker compose 重建）
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Secrets 自检（不打印敏感值）
         env:
+          HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          KEY: ${{ secrets.SSH_KEY }}
+          PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          echo "SSH_HOST 长度: ${#HOST}"
+          echo "SSH_USER: ${SSH_USER:-<空>}"
+          echo "SSH_PORT: ${PORT:-<空，默认 22>}"
+          echo "DEPLOY_PATH: ${DEPLOY_PATH:-<空>}"
+          echo "SSH_KEY 长度: ${#KEY}"
+          echo "SSH_KEY 行数: $(printf '%s' "$KEY" | wc -l)"
+          echo "SSH_KEY 含 BEGIN: $(printf '%s' "$KEY" | grep -c 'BEGIN OPENSSH PRIVATE KEY' || true)"
+          echo "SSH_KEY 含 CRLF: $(printf '%s' "$KEY" | tr -cd '\r' | wc -c)"
+
+      - name: 准备私钥（自动去 CRLF）
+        env:
+          KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -l -f ~/.ssh/deploy_key || (echo "私钥解析失败：请重新粘贴完整私钥" && exit 1)
+
+      - name: SSH 部署（拉代码 + docker compose 重建）
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           DEPLOY_BRANCH: master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          command_timeout: 20m
-          script_stop: true
-          envs: DEPLOY_PATH,DEPLOY_BRANCH
-          script: |
-            set -euo pipefail
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-            cd "$DEPLOY_PATH"
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=15 \
+            "${SSH_USER}@${SSH_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_BRANCH='${DEPLOY_BRANCH}' bash -s" <<'REMOTE'
+          set -euo pipefail
 
-            echo "==> 拉取最新代码"
-            git fetch --prune origin
-            git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
-            git reset --hard "origin/$DEPLOY_BRANCH"
+          cd "$DEPLOY_PATH"
 
-            echo "==> 重建并启动容器（迁移与 seed 在容器启动时自动执行）"
-            docker compose up -d --build --remove-orphans
-            docker image prune -f >/dev/null 2>&1 || true
+          echo "==> 拉取最新代码"
+          git fetch --prune origin
+          git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
+          git reset --hard "origin/$DEPLOY_BRANCH"
 
-            echo "==> 健康检查"
-            for i in $(seq 1 40); do
-              if curl -fsS "http://127.0.0.1:3000/api/auth/session" >/dev/null; then
-                echo "健康检查通过 ✅"
-                exit 0
-              fi
-              sleep 3
-            done
+          echo "==> 重建并启动容器（迁移与 seed 在容器启动时自动执行）"
+          docker compose up -d --build --remove-orphans
+          docker image prune -f >/dev/null 2>&1 || true
 
-            echo "健康检查失败，输出 app 容器日志："
-            docker compose logs --tail=100 app
-            exit 1
+          echo "==> 健康检查"
+          for i in $(seq 1 40); do
+            if curl -fsS "http://127.0.0.1:3000/api/auth/session" >/dev/null; then
+              echo "健康检查通过 ✅"
+              exit 0
+            fi
+            sleep 3
+          done
+
+          echo "健康检查失败，输出 app 容器日志："
+          docker compose logs --tail=100 app
+          exit 1
+          REMOTE
