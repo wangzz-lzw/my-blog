@@ -1,0 +1,13 @@
+# 统一换行符：仓库内一律 LF（Windows 工作区也保持 LF）
+# 否则 CRLF 会让 CI 里 run: 的 bash 脚本带 \r，出现 `set: command not found` 之类怪错
+* text=auto eol=lf
+
+# 二进制文件不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.gz binary
+*.tar.gz binary
