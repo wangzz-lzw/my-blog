@@ -41,5 +41,7 @@ COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/next-env.d.ts ./next-env.d.ts
 EXPOSE 3000
-# 启动前连接 compose 里的 db 服务执行迁移与种子，再启动应用
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npm run start"]
+# 启动前连接 compose 里的 db 服务执行迁移与种子，再启动应用。
+# 每一步都打印日志：初始化失败时能立刻在 `docker compose logs app` 看到是哪一步、
+# 而不是默默起不来。exec 让 npm 成为 1 号进程，保证 docker stop 能优雅退出。
+CMD ["sh", "-c", "set -e; echo '[init] 1/3 migrate deploy…'; npx prisma migrate deploy; echo '[init] 2/3 seed（同步管理员/示例文章）…'; npx prisma db seed; echo '[init] 3/3 启动 Next.js…'; exec npm run start"]

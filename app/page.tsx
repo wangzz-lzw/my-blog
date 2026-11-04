@@ -270,7 +270,7 @@ export default async function HomePage() {
             <div className="widget about-widget" data-reveal>
               <h3 className="widget-title">&gt; 关于本站</h3>
               <p className="widget-text">
-                一个个人博客：记录开发笔记与生活随想。赛博朋克皮肤，阅读优先，无广告，评论需登录。
+                一个个人博客：记录开发笔记与生活随想。赛博朋克皮肤，阅读优先。
               </p>
               <p className="widget-powered">&gt; next.js · postgresql · gsap</p>
             </div>

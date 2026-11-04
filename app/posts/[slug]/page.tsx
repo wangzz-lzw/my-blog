@@ -14,6 +14,24 @@ import type { SafeComment } from "@/lib/types";
 export const revalidate = 60;
 export const dynamicParams = true;
 
+/** 文章页标题交给 layout 的 `%s | 站点名` 模板，避免标签页只显示站点名 */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const post = await prisma.post.findUnique({
+    where: { slug },
+    select: { title: true, excerpt: true, published: true },
+  });
+  if (!post || !post.published) return {};
+  return {
+    title: post.title,
+    description: post.excerpt ?? undefined,
+  };
+}
+
 export default async function PostPage({
   params,
 }: {

@@ -27,6 +27,13 @@
   --btn-fg: #03151a;
   --glow: color-mix(in srgb, var(--accent) 35%, transparent);
   --glow-2: color-mix(in srgb, var(--accent-2) 30%, transparent);
+  /* 装饰/阴影的语义 token：亮色主题整体减弱，避免浅底上发黑发脏 */
+  --scanline: rgba(255, 255, 255, 0.014);
+  --zebra: rgba(255, 255, 255, 0.018);
+  --shadow-soft: 0 6px 22px rgba(0, 0, 0, 0.45);
+  --shadow-strong: 0 14px 34px rgba(0, 0, 0, 0.55);
+  /* 页头控件统一高度（非颜色 token，由 :root 对所有主题生效） */
+  --ctl-h: 26px;
   --font-mono:
     "Share Tech Mono", "Cascadia Code", "JetBrains Mono", Consolas,
     "SF Mono", Menlo, monospace;
@@ -132,6 +139,37 @@
   --glow-2: color-mix(in srgb, var(--accent-2) 30%, transparent);
 }
 
+/* 晨光白：浅色纸面 + 深青主调（唯一的亮色主题，首访随系统偏好启用）
+   accent 系列刻意压深，保证在浅底上作正文/链接文字时对比度 ≥ 4.5:1；
+   glow / 阴影 / 扫描线整体减弱，避免浅色下发虚发脏。 */
+[data-theme="daylight"] {
+  --bg: #f5f7fa;
+  --bg-2: #ffffff;
+  --bg-deep: #e9edf3;
+  --card: #ffffff;
+  --panel: #ffffff;
+  --fg: #243040;
+  --fg-bright: #0f1720;
+  --fg-dim: #46586f;
+  --muted: #5a6b80;
+  --placeholder: #7e8b9c;
+  --border: #d5dce6;
+  --accent: #0a6f92;
+  --accent-2: #c0246a;
+  --accent-3: #96650a;
+  --accent-bright: #075a78;
+  --string: #a01f52;
+  --code-bg: #eef2f7;
+  --input-bg: #ffffff;
+  --btn-fg: #ffffff;
+  --glow: color-mix(in srgb, var(--accent) 12%, transparent);
+  --glow-2: color-mix(in srgb, var(--accent-2) 10%, transparent);
+  --scanline: rgba(15, 23, 42, 0.02);
+  --zebra: rgba(15, 23, 42, 0.035);
+  --shadow-soft: 0 6px 22px rgba(15, 23, 42, 0.1);
+  --shadow-strong: 0 14px 34px rgba(15, 23, 42, 0.16);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -183,8 +221,8 @@ body::after {
   pointer-events: none;
   background: repeating-linear-gradient(
     0deg,
-    rgba(255, 255, 255, 0.014) 0px,
-    rgba(255, 255, 255, 0.014) 1px,
+    var(--scanline) 0px,
+    var(--scanline) 1px,
     transparent 1px,
     transparent 3px
   );
@@ -328,8 +366,23 @@ a:hover {
   }
 }
 
-.site-nav a {
-  margin-left: 1.5rem;
+/* 页头导航行：统一 flex，间距由 gap 决定，不再逐项 margin-left 拼间距；
+   align-items:center 也消除了「无文字的内联盒按基线对齐」导致的高低错位 */
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+/* 账号控件组：登录/注册、后台入口、用户牌、退出。组内更紧，组间由 .site-nav 的 gap 拉开 */
+.nav-account {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 只作用于顶层导航文字项（不含按钮形态的账号控件） */
+.site-nav > a {
   position: relative;
   padding: 0.2rem 0;
   color: var(--muted);
@@ -339,7 +392,7 @@ a:hover {
 }
 
 /* 导航下划线：霓虹扫入 */
-.site-nav a::before {
+.site-nav > a::before {
   content: "";
   position: absolute;
   left: 0;
@@ -351,11 +404,11 @@ a:hover {
   transition: right 0.25s ease;
 }
 
-.site-nav a:hover {
+.site-nav > a:hover {
   color: var(--accent);
 }
 
-.site-nav a:hover::before {
+.site-nav > a:hover::before {
   right: 0;
 }
 
@@ -363,7 +416,6 @@ a:hover {
 
 /* 未登录：霓虹描边按钮（与纯文字导航项可区分） */
 .login-link {
-  margin-left: 1.5rem;
   padding: 0.35rem 1rem;
   color: var(--accent);
   font-family: var(--font-mono);
@@ -388,7 +440,6 @@ a:hover {
   justify-content: center;
   width: 34px;
   height: 34px;
-  margin-left: 1.5rem;
   color: var(--accent);
   font-family: var(--font-mono);
   font-size: 0.9rem;
@@ -409,7 +460,6 @@ a:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  margin-left: 1rem;
   padding: 0.18rem 0.65rem 0.18rem 0.18rem;
   background: color-mix(in srgb, var(--accent) 5%, transparent);
   border: 1px solid var(--border);
@@ -426,7 +476,6 @@ a:hover {
 .user-chip .user-avatar {
   width: 26px;
   height: 26px;
-  margin-left: 0;
   font-size: 0.7rem;
   box-shadow: none;
 }
@@ -444,7 +493,6 @@ a:hover {
 
 /* 页头退出控件（hover 品红预警） */
 .logout-link {
-  margin-left: 0.75rem;
   padding: 0.3rem 0.7rem;
   color: var(--muted);
   font-family: var(--font-mono);
@@ -463,12 +511,25 @@ a:hover {
   box-shadow: 0 0 10px var(--glow-2);
 }
 
+/* 页头控件统一高度 + 盒内竖直居中。
+   flex 行只能保证「盒子中心」对齐；盒子内部要自己居中，否则文字贴在盒顶。
+   line-height:1 让内容高度完全由 min-height 决定，中心线因此是结构保证而非目测。 */
+.theme-btn,
+.login-link,
+.logout-link,
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ctl-h);
+  line-height: 1;
+}
+
 /* 头像加载中的占位：可见虚线框 + 呼吸，不出现空洞 */
 .header-auth-slot {
   display: inline-block;
   width: 34px;
   height: 34px;
-  margin-left: 1.5rem;
   border: 1px dashed var(--border);
   border-radius: 2px;
   animation: slot-pulse 1.6s ease-in-out infinite;
@@ -1886,16 +1947,13 @@ main.container:has(.home-grid) {
     gap: 0.35rem;
   }
 
-  .site-nav a,
-  .site-nav .login-link,
-  .site-nav .user-avatar {
-    margin-left: 1rem;
+  /* 页头换行后整体收紧间距（间距不再由各控件 margin 拼，只调两处 gap） */
+  .site-nav {
+    gap: 0.6rem;
   }
 
-  /* 已登录三件套（chip + 退出）在换行页头下收紧间距 */
-  .site-nav .user-chip,
-  .site-nav .logout-link {
-    margin-left: 0.6rem;
+  .nav-account {
+    gap: 0.4rem;
   }
 
   /* 头条卡：封面块收为顶部横条，正文全宽 */
@@ -2001,7 +2059,6 @@ main.site-main {
 
 /* 未登录时的「注册」文字链接（与登录按钮成对出现） */
 .register-link {
-  margin-left: 1.25rem;
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.8rem;
@@ -2071,7 +2128,7 @@ body.immersive main.site-main {
   border-color: var(--accent);
   border-left-color: var(--accent-2);
   transform: translateY(-2px);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 14px var(--glow);
+  box-shadow: var(--shadow-soft), 0 0 14px var(--glow);
 }
 
 .tag-card-name {
@@ -2253,7 +2310,7 @@ body.immersive main.site-main {
 }
 
 .prose tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.018);
+  background: var(--zebra);
 }
 
 /* 标题锚点：默认隐藏，悬停标题才出现 */
@@ -2960,10 +3017,6 @@ body:has(.admin-shell) .admin-shell {
 
 /* ============ 主题切换器 ============ */
 
-.site-nav .theme-switch {
-  margin-left: 1rem;
-}
-
 .theme-switch {
   position: relative;
   display: inline-flex;
@@ -2973,6 +3026,7 @@ body:has(.admin-shell) .admin-shell {
 .theme-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: 0.32rem 0.5rem;
   background: color-mix(in srgb, var(--card) 55%, transparent);
   border: 1px solid var(--border);
@@ -2988,11 +3042,12 @@ body:has(.admin-shell) .admin-shell {
 
 .theme-dots {
   display: inline-flex;
+  align-items: center;
   gap: 3px;
 }
 
 .theme-dots i {
-  display: block;
+  display: inline-block;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -3008,12 +3063,28 @@ body:has(.admin-shell) .admin-shell {
   padding: 0.5rem;
   background: color-mix(in srgb, var(--bg-2) 96%, transparent);
   border: 1px solid var(--border);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-strong);
   backdrop-filter: blur(8px);
 }
 
+/* 指向触发按钮的小三角：解决「这个菜单属于谁」的视觉归属 */
+.theme-menu::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-2);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+/* 标题与选项内容的左边界对齐：菜单 0.5rem 内边距 + 选项 0.55rem 内边距 = 1.05rem */
 .theme-menu-title {
-  margin: 0.2rem 0.35rem 0.45rem;
+  margin: 0.2rem 0 0.45rem;
+  padding: 0 0.55rem;
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.7rem;
@@ -3021,10 +3092,12 @@ body:has(.admin-shell) .admin-shell {
   text-transform: uppercase;
 }
 
+/* 三列栅格：色点 / 名称 / 勾选。列宽固定，因此 6 行严格共线，名称长短不影响对齐 */
 .theme-menu button {
-  display: flex;
+  display: grid;
+  grid-template-columns: 33px minmax(0, 1fr) 1.2em;
+  column-gap: 0.6rem;
   align-items: center;
-  gap: 0.6rem;
   width: 100%;
   padding: 0.45rem 0.55rem;
   color: var(--fg);
@@ -3049,11 +3122,14 @@ body:has(.admin-shell) .admin-shell {
 }
 
 .theme-name {
-  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .theme-check {
   color: var(--accent);
+  text-align: center;
 }
 
 /* 后台侧栏底部：主题 + 退出 */
@@ -3063,6 +3139,26 @@ body:has(.admin-shell) .admin-shell {
   gap: 0.9rem;
 }
 
+/* 侧栏里切换器位于左下角、贴近视口底部：
+   菜单改为向右展开 + 向上弹出，否则会跑到视口左侧外/下方被裁掉 */
+.admin-side-actions .theme-menu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+}
+
+.admin-side-actions .theme-menu::before {
+  top: auto;
+  bottom: -5px;
+  left: 12px;
+  right: auto;
+  border-left: none;
+  border-top: none;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
 @media (max-width: 900px) {
   .admin-side-actions {
     gap: 0.6rem;
@@ -3070,12 +3166,17 @@ body:has(.admin-shell) .admin-shell {
 }
 
 @media (max-width: 720px) {
-  .site-nav .theme-switch {
-    margin-left: 0.6rem;
+  /* 窄屏下触发按钮不再贴着视口右缘（导航换行后位于行首），
+     改为以按钮左边缘为锚点向右展开，避免菜单左半截跑到视口外 */
+  .theme-menu {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 2rem);
   }
 
-  .theme-menu {
-    right: -3.5rem;
+  .theme-menu::before {
+    left: 12px;
+    right: auto;
   }
 }
 
@@ -3094,7 +3195,6 @@ body:has(.admin-shell) .admin-shell {
 }
 
 .admin-entry {
-  margin-left: 1.25rem;
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.8rem;

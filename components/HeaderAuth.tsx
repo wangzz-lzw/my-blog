@@ -57,19 +57,23 @@ export function HeaderAuth() {
   }, [pathname]);
 
   if (user === undefined) {
-    return <span className="header-auth-slot" aria-busy="true" />;
+    return (
+      <div className="nav-account">
+        <span className="header-auth-slot" aria-busy="true" />
+      </div>
+    );
   }
 
   if (!user) {
     return (
-      <>
+      <div className="nav-account">
         <Link href="/register" className="register-link">
           注册
         </Link>
         <Link href="/login" className="login-link">
           登录
         </Link>
-      </>
+      </div>
     );
   }
 
@@ -87,7 +91,7 @@ export function HeaderAuth() {
   const who = user.username || user.email || user.name || "";
 
   return (
-    <>
+    <div className="nav-account">
       {isAdmin && (
         <Link href="/admin" className="admin-entry">
           后台
@@ -109,6 +113,6 @@ export function HeaderAuth() {
         <span className="user-label">{label}</span>
       </Link>
       <LogoutControl />
-    </>
+    </div>
   );
 }

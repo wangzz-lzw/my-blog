@@ -8,6 +8,7 @@ const THEMES = [
   { id: "ember", name: "余烬橙", swatch: ["#ff9f45", "#ff5c8a", "#0e0703"] },
   { id: "forest", name: "苔原绿", swatch: ["#3ddc97", "#ffd166", "#040a07"] },
   { id: "sakura", name: "樱雾粉", swatch: ["#ff7ac6", "#8b5cf6", "#0c0710"] },
+  { id: "daylight", name: "晨光白", swatch: ["#f5f7fa", "#0a6f92", "#c0246a"] },
 ] as const;
 
 type ThemeId = (typeof THEMES)[number]["id"];

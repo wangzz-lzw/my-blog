@@ -106,6 +106,15 @@ jobs:
             "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_BRANCH='${DEPLOY_BRANCH}' bash -s" <<'REMOTE'
           set -euo pipefail
 
+          if [ ! -d "$DEPLOY_PATH" ]; then
+            echo "❌ 部署目录不存在: $DEPLOY_PATH"
+            echo "当前用户: $(whoami)   HOME: $HOME"
+            echo "候选目录："
+            ls -d "$HOME/opt/my-blog" /opt/my-blog /home/*/opt/my-blog 2>/dev/null || true
+            echo "→ 请把 GitHub Secret 的 DEPLOY_PATH 改成实际路径"
+            exit 1
+          fi
+
           cd "$DEPLOY_PATH"
 
           echo "==> 拉取最新代码"
