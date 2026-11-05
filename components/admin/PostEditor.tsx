@@ -8,6 +8,8 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { DropdownMenu } from "radix-ui";
 import { slugify } from "@/lib/slug";
 import {
   mergeImport,
@@ -39,7 +41,31 @@ type FullscreenMode = "off" | "native" | "immersive";
 /** 导入 Markdown 的大小上限：纯文本，1MB 远超一篇长文 */
 const MAX_MD_SIZE = 1024 * 1024;
 
-export function PostEditor({ post }: { post?: EditorPost }) {
+/** 逗号分隔的标签串 → 数组（与 POST /api/posts 的切分口径一致：只认英文逗号） */
+function splitTagInput(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** 勾选/取消一个已有标签，回写成逗号串；其余标签顺序不变 */
+function toggleTagIn(value: string, name: string, on: boolean): string {
+  const list = splitTagInput(value);
+  const exists = list.includes(name);
+  if (on && !exists) list.push(name);
+  if (!on && exists) return list.filter((t) => t !== name).join(", ");
+  return list.join(", ");
+}
+
+export function PostEditor({
+  post,
+  knownTags = [],
+}: {
+  post?: EditorPost;
+  /** 站上已有的标签名：只用来做输入候选，写新标签照样允许 */
+  knownTags?: string[];
+}) {
   const router = useRouter();
   const isEdit = Boolean(post);
   const rootRef = useRef<HTMLFormElement | null>(null);
@@ -549,12 +575,76 @@ export function PostEditor({ post }: { post?: EditorPost }) {
           />
         </div>
         <div className="field">
-          <label>标签（英文逗号分隔）</label>
-          <input
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="Next.js, 前端, 部署"
-          />
+          <div className="tag-field-head">
+            <label htmlFor="tag-picker-trigger">标签</label>
+            <Link href="/admin/tags" className="tag-manage-link">
+              管理标签 →
+            </Link>
+          </div>
+          <div className="tag-field">
+            {/* 标签是受控词表：只能从已有标签里挑，现场不造新词
+                （要新建去「管理标签」，否则迟早长出一堆 typo 标签） */}
+            <div className="tag-chips">
+              {splitTagInput(tags).length === 0 ? (
+                <span className="tag-chips-empty">还没选，从右边挑</span>
+              ) : (
+                splitTagInput(tags).map((name) => (
+                  <span className="tag-chip" key={name}>
+                    {name}
+                    <button
+                      type="button"
+                      className="tag-chip-remove"
+                      onClick={() => setTags((value) => toggleTagIn(value, name, false))}
+                      aria-label={`移除标签 ${name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger
+                id="tag-picker-trigger"
+                className="btn btn-sm ghost tag-picker-trigger"
+                aria-label="从已有标签中选择"
+              >
+                已有标签
+                <span className="tag-picker-caret" aria-hidden="true">
+                  ▾
+                </span>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  className="user-menu tag-picker-menu"
+                  align="end"
+                  sideOffset={6}
+                >
+                  <div className="tag-picker-head">点一下加入，再点一下移除</div>
+                  {knownTags.length === 0 ? (
+                    <DropdownMenu.Item className="user-menu-item" disabled>
+                      还没有标签，先去「管理标签」建一个
+                    </DropdownMenu.Item>
+                  ) : (
+                    knownTags.map((name) => (
+                      <DropdownMenu.CheckboxItem
+                        key={name}
+                        className="user-menu-item tag-picker-item"
+                        checked={splitTagInput(tags).includes(name)}
+                        onCheckedChange={(on) =>
+                          setTags((value) => toggleTagIn(value, name, on))
+                        }
+                        // 多选时不关菜单：勾完一个接着勾下一个
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {name}
+                      </DropdownMenu.CheckboxItem>
+                    ))
+                  )}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+          </div>
         </div>
         <div className="field">
           <label>封面图（选填）</label>

@@ -10,10 +10,13 @@ export default async function EditPostPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const post = await prisma.post.findUnique({
-    where: { id },
-    include: { tags: true },
-  });
+  const [post, allTags] = await Promise.all([
+    prisma.post.findUnique({
+      where: { id },
+      include: { tags: true },
+    }),
+    prisma.tag.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
+  ]);
   if (!post) notFound();
 
   const editorPost = {
@@ -29,7 +32,10 @@ export default async function EditPostPage({
 
   return (
     <div className="admin-page">
-      <PostEditor post={editorPost} />
+      <PostEditor
+        post={editorPost}
+        knownTags={allTags.map((t) => t.name)}
+      />
     </div>
   );
 }

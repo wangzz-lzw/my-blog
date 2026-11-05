@@ -57,10 +57,12 @@ model Post {
 }
 
 model Tag {
-  id    String @id @default(cuid())
-  name  String @unique
-  slug  String @unique
-  posts Post[]
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  aliases   String[] @default([]) // 被替换掉的旧 slug：旧地址靠它永久跳转
+  createdAt DateTime @default(now())
+  posts     Post[]
 }
 
 model Comment {

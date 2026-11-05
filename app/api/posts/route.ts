@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
+import { TagError, resolveTagRefs } from "@/lib/tags";
 
 export async function POST(req: NextRequest) {
   const session = await getAdminSession();
@@ -37,6 +38,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 受控词表：标签必须是已经存在的，不接受现场新建
+  let tagRefs: { id: string }[];
+  try {
+    tagRefs = await resolveTagRefs(tagNames);
+  } catch (e) {
+    if (e instanceof TagError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    throw e;
+  }
+
   const post = await prisma.post.create({
     data: {
       title,
@@ -46,15 +58,7 @@ export async function POST(req: NextRequest) {
       content,
       published,
       publishedAt: published ? new Date() : null,
-      tags: {
-        connectOrCreate: tagNames.map((name) => {
-          const tagSlug = slugify(name);
-          return {
-            where: { slug: tagSlug },
-            create: { name, slug: tagSlug },
-          };
-        }),
-      },
+      tags: { connect: tagRefs },
     },
   });
 

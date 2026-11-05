@@ -4,6 +4,7 @@ import { readTime } from "@/lib/read-time";
 import { toSiteImageUrl } from "@/lib/image-url";
 import type { PostWithTags } from "@/lib/types";
 import { GsapReveal } from "@/components/GsapReveal";
+import { ListScrollPane } from "@/components/blog/ListScrollPane";
 
 // 列表必须读运行时数据：镜像构建阶段没有真实数据库（Dockerfile 用的是临时空库），
 // 一旦预渲染就会把"空列表"打进镜像，部署后前台永远 0 篇。这里强制动态渲染。
@@ -85,9 +86,9 @@ export default async function HomePage() {
   const [featured, ...rest] = posts as PostWithTags[];
 
   return (
-    <GsapReveal>
-      <div className="sheet">
-        <div className="ledger">
+    <GsapReveal className="list-host">
+      <div className="sheet sheet--scroll">
+        <ListScrollPane>
           <p className="ledger-intro" data-reveal>
             开发笔记与生活随想。按时间倒排，越新的越靠上。
           </p>
@@ -172,7 +173,7 @@ export default async function HomePage() {
               更多文章会按时间排在这条线下面。
             </p>
           )}
-        </div>
+        </ListScrollPane>
 
         <aside className="rail" aria-label="侧栏" data-reveal>
           <section className="rail-block">

@@ -26,6 +26,7 @@ export default async function AdminLayout({
           <Link href="/admin">概览</Link>
           <Link href="/admin/posts">文章</Link>
           <Link href="/admin/posts/new">写文章</Link>
+          <Link href="/admin/tags">标签</Link>
           <Link href="/admin/comments">评论</Link>
           <Link href="/profile">个人资料</Link>
         </nav>

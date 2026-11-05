@@ -29,11 +29,16 @@ function extractJson(raw: string): Record<string, unknown> {
 
 /**
  * 根据标题 + Markdown 正文，生成一句话摘要（≤300 字）和最多 5 个标签。
+ *
+ * 标签是「受控词表」：只能从 `allowedTags`（站上已存在的标签）里挑，
+ * 不许发明新词。prompt 里给出白名单，返回值再按白名单过滤一次——
+ * 模型不听话的时候由代码兜住。
  */
 export async function summarizePost(input: {
   title: string;
   content: string;
   tags?: string;
+  allowedTags: string[];
 }): Promise<AiSummaryResult> {
   const key = process.env.AI_API_KEY?.trim();
   const base = process.env.AI_BASE_URL?.trim();
@@ -42,16 +47,23 @@ export async function summarizePost(input: {
     throw new Error("AI 未配置：请在 .env 中填写 AI_API_KEY / AI_BASE_URL / AI_MODEL");
   }
 
+  const allowed = Array.from(new Set(input.allowedTags.map((t) => t.trim()))).filter(
+    Boolean
+  );
+
   const system = [
     "你是一名中文博客编辑助手。根据用户提供的文章标题和正文，生成：",
     "1. excerpt：用于列表页展示的一句话摘要，不超过 80 个汉字；",
-    "2. tags：最多 5 个简短的中文标签，贴合文章主题，若用户已有标签则保留并补充。",
+    "2. tags：从「可用标签」中挑选最多 5 个最贴合文章主题的标签。",
+    "   规则：只能从可用标签里原样挑选，禁止发明新标签、禁止改写写法；",
+    "   可用标签都不贴切时就返回空数组，不要勉强凑数。",
     '严格只输出一个 JSON 对象，不要任何解释或代码块：{"excerpt": "...", "tags": ["...", "..."]}',
   ].join("\n");
 
   const user = [
     `标题：${input.title}`,
-    input.tags ? `已有标签：${input.tags}` : "已有标签：（无）",
+    `可用标签：${allowed.length > 0 ? allowed.join("、") : "（暂无可用标签，tags 必须返回空数组）"}`,
+    input.tags ? `当前已选：${input.tags}` : "当前已选：（无）",
     `正文（截取前 8000 字符）：\n${input.content.slice(0, 8000)}`,
   ].join("\n\n");
 
@@ -83,12 +95,15 @@ export async function summarizePost(input: {
 
   const excerpt = String(parsed.excerpt ?? "").trim().slice(0, 300);
   const rawTags = Array.isArray(parsed.tags) ? parsed.tags : [];
+
+  // 只留白名单里的标签，并把写法归一到库里的那个（大小写/空格差异都算命中）
+  const canon = new Map(allowed.map((t) => [t.toLowerCase(), t]));
   const tags = Array.from(
     new Set(
       rawTags
         .filter((t): t is string => typeof t === "string")
-        .map((t) => t.trim().slice(0, 20))
-        .filter(Boolean)
+        .map((t) => canon.get(t.trim().toLowerCase()))
+        .filter((t): t is string => Boolean(t))
     )
   ).slice(0, 5);
 

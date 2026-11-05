@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
+import { TagError, resolveTagRefs } from "@/lib/tags";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -45,15 +46,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
     );
   }
 
-  // 确保标签存在，再整体 set（重置关联）
-  const tagRefs: { id: string }[] = [];
-  for (const name of tagNames) {
-    const tag = await prisma.tag.upsert({
-      where: { slug: slugify(name) },
-      update: {},
-      create: { name, slug: slugify(name) },
-    });
-    tagRefs.push({ id: tag.id });
+  // 受控词表：标签必须是已经存在的，不接受现场新建（新建走后台「标签」页）
+  let tagRefs: { id: string }[];
+  try {
+    tagRefs = await resolveTagRefs(tagNames);
+  } catch (e) {
+    if (e instanceof TagError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    throw e;
   }
 
   const post = await prisma.post.update({

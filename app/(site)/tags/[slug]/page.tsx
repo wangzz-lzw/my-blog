@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/date";
 import { readTime } from "@/lib/read-time";
@@ -27,7 +27,18 @@ export default async function TagPage({
     },
   });
 
-  if (!tag) notFound();
+  // 改名后旧地址仍然要能打开：命中了谁的别名，就永久跳到它现在的地址。
+  // 中文 slug 必须编码：Location 头里出现非 ASCII 字符会直接炸成 500。
+  if (!tag) {
+    const renamed = await prisma.tag.findFirst({
+      where: { aliases: { has: slug } },
+      select: { slug: true },
+    });
+    if (renamed) {
+      permanentRedirect(`/tags/${encodeURIComponent(renamed.slug)}`);
+    }
+    notFound();
+  }
 
   return (
     <div className="container container-read page">

@@ -269,6 +269,71 @@ body {
   flex-direction: column;
 }
 
+/* ---------- 列表页：滚动属于列表自己 ---------- */
+
+/* 只在这条路由上把视口高度收进容器：列表滚，页头/页脚/侧栏不跟着走。
+   高度靠「每层 min-height: 0」收口，不用 position: fixed 重排布局，
+   所以无 JS 时这条链照样成立，列表依然可滚。 */
+body:has(.sheet--scroll) {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body:has(.sheet--scroll) main.site-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* GsapReveal 那层无名 div：不接住高度，链条会断在这里 */
+body:has(.sheet--scroll) .list-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.sheet--scroll {
+  height: 100%;
+  min-height: 0;
+  /* 单行铺满，两个子项才拿得到确定高度 */
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  /* 让原生滚动条跟着主题走（不接管 ::-webkit-scrollbar：
+     自定义会把系统那层细滚动条换成带上下箭头的经典条） */
+  color-scheme: dark;
+}
+
+[data-theme="daylight"] .sheet--scroll {
+  color-scheme: light;
+}
+
+.sheet--scroll .ledger {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 始终给滚动条留槽：列表长短变化时不带得条目宽度一跳一跳 */
+  scrollbar-gutter: stable;
+}
+
+/* 侧栏不跟列表滚；它自己高过视口时才单独滚。
+   右内边距给滚动条让位：不然计数会被压在滚动条底下。 */
+.sheet--scroll .rail {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 0.5rem;
+}
+
+/* 键盘焦点：描边往内收，否则会被容器的 overflow 裁掉 */
+.sheet--scroll .ledger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -4px;
+}
+
 .entry {
   display: grid;
   grid-template-columns: var(--gutter) minmax(0, 1fr);
@@ -2558,6 +2623,29 @@ html.js-ready .welcome-actions {
     grid-template-columns: minmax(0, 1fr);
     column-gap: 0;
     row-gap: 3rem;
+  }
+
+  /* 列表页在这个断点退回整页滚动：窄屏不要叠两层滚动 */
+  body:has(.sheet--scroll) {
+    height: auto;
+    overflow: visible;
+  }
+
+  body:has(.sheet--scroll) main.site-main,
+  body:has(.sheet--scroll) .list-host {
+    display: block;
+  }
+
+  .sheet--scroll {
+    height: auto;
+    grid-template-rows: auto;
+  }
+
+  .sheet--scroll .ledger,
+  .sheet--scroll .rail {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
   }
 
   .rail {

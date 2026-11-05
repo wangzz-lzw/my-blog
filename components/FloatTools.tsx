@@ -2,13 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { currentScrollPane, onPaneScroll, paneScrollState } from "@/lib/scroll-pane";
 
-/** 滚动超过多少视口高度后，回到顶部按钮才可用 */
+/** 滚动超过多少可视高度后，回到顶部按钮才可用 */
 const SHOW_AFTER = 0.75;
 
+/**
+ * 滚回顶部。
+ * 目标不是写死的 window——列表页滚的是列表容器，滚 window 会一点反应都没有。
+ */
 function scrollToTop() {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+  const behavior: ScrollBehavior = reduced ? "auto" : "smooth";
+  const pane = currentScrollPane();
+  if (pane instanceof HTMLElement) {
+    pane.scrollTo({ top: 0, behavior });
+  } else {
+    window.scrollTo({ top: 0, behavior });
+  }
 }
 
 type ToolProps = {
@@ -65,16 +76,23 @@ export function FloatTools() {
   }, [isArticle]);
 
   useEffect(() => {
-    // 不做 rAF 节流：只是一次数值比较，React 对相同值会 bail out
-    const onScroll = () => setCanTop(window.scrollY > window.innerHeight * SHOW_AFTER);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+    // 不做 rAF 节流：只是一次数值比较，React 对相同值会 bail out。
+    // 监听的是「当前滚动层」：列表页是列表容器，其它页是 window。
+    const pane = currentScrollPane();
+    const read = () => {
+      const { top, view } = paneScrollState(pane);
+      setCanTop(top > view * SHOW_AFTER);
     };
-  }, []);
+    read();
+    const offScroll = onPaneScroll(pane, read);
+    window.addEventListener("resize", read);
+    return () => {
+      offScroll();
+      window.removeEventListener("resize", read);
+    };
+    // 路由一变滚动层可能换人（列表页 ↔ 其它页），必须重新解析
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const toggleImmersive = useCallback(() => setImmersive((v) => !v), []);
 

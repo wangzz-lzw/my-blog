@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/authz";
 import { isAiConfigured, summarizePost } from "@/lib/ai";
+import { prisma } from "@/lib/prisma";
 
 // 简单限流：每个用户每分钟最多 10 次（单实例部署够用）
 const requests = new Map<string, number[]>();
@@ -46,7 +47,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await summarizePost({ title, content, tags });
+    // 标签是受控词表：把站上现有的标签作为白名单交给模型，返回值也只保留白名单内的
+    const allowedTags = (
+      await prisma.tag.findMany({
+        select: { name: true },
+        orderBy: { name: "asc" },
+      })
+    ).map((t) => t.name);
+
+    const result = await summarizePost({ title, content, tags, allowedTags });
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "AI 生成失败";

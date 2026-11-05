@@ -2741,6 +2741,190 @@ body:has(.admin-shell) .admin-shell {
   border-radius: 2px;
 }
 
+/* ============ 标签管理 ============ */
+
+/* 新建标签：一行里放名称 + 地址段 + 按钮，窄屏自动折行 */
+.tag-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+
+.tag-form .field {
+  flex: 0 1 20rem;
+  min-width: 12rem;
+  margin: 0;
+}
+
+.tag-form .btn {
+  flex: 0 0 auto;
+  min-height: 2.6rem;
+}
+
+/* 行内改名：表格里的输入框要跟单元格一个高度节奏 */
+.tag-inline {
+  width: 100%;
+  min-width: 7rem;
+  padding: 0.28rem 0.45rem;
+  font: inherit;
+  color: var(--fg-bright);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.tag-inline:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* 旧地址数量：悬停能看到具体是哪些 */
+.tag-alias {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  cursor: help;
+}
+
+.tag-unused {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.tag-error {
+  margin: 0.35rem 0 0;
+  color: var(--accent-2);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+/* 编辑器里的标签字段：已选胶囊 + 「已有标签」下拉（Radix DropdownMenu）。
+   标签是受控词表，所以这里没有文本输入框——只能选，不能造。 */
+.tag-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tag-manage-link {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.tag-manage-link:hover {
+  color: var(--accent);
+}
+
+.tag-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.tag-chips {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.2rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.tag-chips-empty {
+  color: var(--placeholder);
+  font-size: 0.84rem;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.25rem 0.1rem 0.45rem;
+  color: var(--fg-bright);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  border-radius: 2px;
+}
+
+.tag-chip-remove {
+  padding: 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.tag-chip-remove:hover {
+  color: var(--accent-2);
+}
+
+.tag-picker-trigger {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.tag-picker-caret {
+  margin-left: 0.35rem;
+  font-size: 0.7em;
+  color: var(--muted);
+}
+
+.tag-picker-menu {
+  min-width: 13rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  /* 菜单自己会滚，原生滚动条得跟着主题走，不然暗色面板里挂一条白杠 */
+  color-scheme: dark;
+}
+
+[data-theme="daylight"] .tag-picker-menu {
+  color-scheme: light;
+}
+
+.tag-picker-head {
+  padding: 0.35rem 0.6rem 0.45rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+/* 勾选态用对勾标出来，与账号菜单同一套语言 */
+.tag-picker-item[data-state="checked"]::after {
+  content: "✓";
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+
+.tag-picker-item[data-state="checked"] {
+  color: var(--fg-bright);
+}
+
+/* 菜单项的高亮由 Radix 的 data-highlighted 负责，不要再叠一圈焦点描边 */
+.tag-picker-item:focus-visible,
+.user-menu-item:focus-visible {
+  outline: none;
+}
+
 /* ============ 写作台：实时预览分栏 ============ */
 
 .editor {
