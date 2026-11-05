@@ -5,7 +5,9 @@ import { toSiteImageUrl } from "@/lib/image-url";
 import type { PostWithTags } from "@/lib/types";
 import { GsapReveal } from "@/components/GsapReveal";
 
-export const revalidate = 60;
+// 列表必须读运行时数据：镜像构建阶段没有真实数据库（Dockerfile 用的是临时空库），
+// 一旦预渲染就会把"空列表"打进镜像，部署后前台永远 0 篇。这里强制动态渲染。
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "文章",

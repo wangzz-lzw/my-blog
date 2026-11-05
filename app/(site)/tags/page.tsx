@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
-export const revalidate = 60;
+// 标签索引同样依赖实时数据，构建期数据库是空库，预渲染会得到空索引
+export const dynamic = "force-dynamic";
 
 export default async function TagsPage() {
   const tags = await prisma.tag.findMany({

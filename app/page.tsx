@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { BrandMark } from "@/components/BrandMark";
 import { SITE_NAME } from "@/lib/site";
 
-export const revalidate = 60;
+// 欢迎页上的文章数 / 标签数 / 更新日期都来自数据库：构建镜像时数据库是空的，
+// 预渲染会把这些数字烘死在 HTML 里。强制动态渲染。
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "欢迎",
