@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useFeedback } from "@/components/feedback/FeedbackProvider";
 
 type SessionUser = {
   id: string;
@@ -29,6 +30,7 @@ export function CommentForm({
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">(
     "idle"
   );
+  const { alert: notify } = useFeedback();
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -76,18 +78,18 @@ export function CommentForm({
         setStatus("done");
         setContent("");
         router.refresh();
+        void notify({
+          title: "评论已提交",
+          description: "审核通过后会出现在这篇文章下面。",
+        });
       } else {
         setStatus("error");
+        void notify({ title: "评论提交失败", description: "请稍后重试。" });
       }
     } catch {
       setStatus("error");
+      void notify({ title: "评论提交失败", description: "网络异常，请稍后重试。" });
     }
-  }
-
-  if (status === "done") {
-    return (
-      <p className="notice info">评论已提交，审核通过后显示。</p>
-    );
   }
 
   return (
@@ -104,10 +106,6 @@ export function CommentForm({
         maxLength={2000}
         rows={4}
       />
-
-      {status === "error" && (
-        <p className="notice error">提交失败，请稍后重试。</p>
-      )}
 
       <div className="comment-form-foot">
         <span className="comment-hint">{content.length}/2000</span>

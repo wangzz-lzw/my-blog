@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, type ReactNode } from "react";
+import { useFeedback } from "@/components/feedback/FeedbackProvider";
 
 /**
  * 终端风代码卡：顶栏 ~/语言标签 + 复制按钮。
@@ -27,6 +28,7 @@ export function CodeBlock({
   language?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const { alert: notify } = useFeedback();
 
   const text = extractText(children).replace(/\n$/, "");
 
@@ -48,7 +50,10 @@ export function CodeBlock({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      alert("复制失败，请手动选中复制");
+      void notify({
+        title: "复制失败",
+        description: "浏览器拒绝了写入剪贴板，请手动选中后复制。",
+      });
     }
   };
 

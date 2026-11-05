@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { GsapReveal } from "@/components/GsapReveal";
+import { useFeedback } from "@/components/feedback/FeedbackProvider";
 
 export function RegisterForm({ returnTo }: { returnTo: string }) {
   const router = useRouter();
@@ -12,15 +13,17 @@ export function RegisterForm({ returnTo }: { returnTo: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { alert: notify } = useFeedback();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
 
     if (password !== confirm) {
-      setError("两次输入的密码不一致");
+      void notify({
+        title: "两次密码不一致",
+        description: "请重新输入一次确认密码。",
+      });
       return;
     }
 
@@ -33,7 +36,10 @@ export function RegisterForm({ returnTo }: { returnTo: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "注册失败，请稍后重试");
+        void notify({
+          title: "注册失败",
+          description: data.error ?? "请稍后重试",
+        });
         setLoading(false);
         return;
       }
@@ -53,7 +59,10 @@ export function RegisterForm({ returnTo }: { returnTo: string }) {
       router.push(returnTo || "/");
       router.refresh();
     } catch {
-      setError("网络错误，注册失败");
+      void notify({
+        title: "注册失败",
+        description: "网络异常，请稍后重试",
+      });
       setLoading(false);
     }
   }
@@ -67,8 +76,6 @@ export function RegisterForm({ returnTo }: { returnTo: string }) {
         </p>
         <h1>注册</h1>
         <p className="login-sub">注册后即可发表评论；管理后台仅限管理员。</p>
-
-        {error && <p className="notice error">{error}</p>}
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="field">

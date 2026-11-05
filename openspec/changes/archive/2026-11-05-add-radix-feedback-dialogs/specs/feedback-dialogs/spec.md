@@ -2,20 +2,20 @@
 
 ## Purpose
 
-定义站点提示交互的统一契约：所有需要告诉用户或向用户要决定的地方，都用同一套 Radix 弹窗呈现，并规定三种语义的返回值、主题跟随、可访问性与并发行为。
+定义站点提示交互的统一契约：所有需要告诉用户结果或向用户要确认的地方，都用同一套 Radix 弹窗呈现，并规定两种语义的返回值、主题跟随、可访问性与并发行为。
 
 ## ADDED Requirements
 
 ### Requirement: 统一的提示入口
 
-前端 SHALL 通过 `useFeedback()` 提供的三个方法触发提示（`alert` / `confirm` / `choose`）；应用代码 MUST NOT 再调用 `window.confirm`、`window.alert`、`window.prompt`，也 MUST NOT 用内联段落充当提示。
+前端 SHALL 通过 `useFeedback()` 提供的两个方法触发提示（`alert` / `confirm`）；应用代码 MUST NOT 再调用 `window.confirm`、`window.alert`、`window.prompt`，也 MUST NOT 用内联段落充当提示。
 
 #### Scenario: 不再出现原生弹窗
 - **WHEN** 在源码中检索 `window.confirm`、`alert(`、`window.prompt`
 - **THEN** 业务代码中没有任何调用点（Radix 内部实现除外）
 
 #### Scenario: 不再出现内联提示
-- **WHEN** 走完登录失败、注册失败、评论成功、资料保存、AI 摘要、后台加载失败这些路径
+- **WHEN** 走完登录失败、注册失败、评论成功、资料保存、头像上传、密码修改、AI 摘要、后台加载失败这些路径
 - **THEN** 页面正文里不再出现 `.notice` 提示段落，提示一律以弹窗形式呈现
 
 ### Requirement: alert —— 单按钮知会
@@ -46,21 +46,9 @@
 - **WHEN** 打开一个删除类确认弹窗
 - **THEN** 初始焦点落在「取消」而不是「删除」，避免回车误删
 
-### Requirement: choose —— 多按钮选择
-
-`choose()` SHALL 支持两个以上选项，每个选项带标签与值，返回 `Promise<string | null>`；返回被点选的 `value`，取消、按 Esc 或点遮罩返回 `null`。
-
-#### Scenario: 导入 Markdown 时的三选一
-- **WHEN** 编辑器里已有内容时导入 Markdown 文件
-- **THEN** 弹窗提供「替换」「追加到末尾」「取消」三个出口，分别返回 `"replace"`、`"append"`、`null`
-
-#### Scenario: 选择结果驱动后续行为
-- **WHEN** 用户点「追加到末尾」
-- **THEN** 正文追加、元信息只补空字段，与既有导入契约一致
-
 ### Requirement: 主题与语言跟随
 
-弹窗外观 SHALL 跟随当前主题：深色五套使用 Radix 的 dark appearance，`daylight` 使用 light appearance，强调色与主题主色对应；切换主题后新弹窗立即呈现新外观。
+弹窗外观 SHALL 跟随当前主题：底色、文字、描边与强调色都取站点既有的 `data-theme` 变量，切换主题后新弹窗立即呈现新外观，不得出现与页面脱节的另一套皮肤。
 
 #### Scenario: 深色主题下的弹窗
 - **WHEN** 站点处于「赛博青」并触发确认弹窗

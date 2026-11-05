@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toSiteImageUrl } from "@/lib/image-url";
+import { useFeedback } from "@/components/feedback/FeedbackProvider";
 
 type ProfileUser = {
   username: string;
@@ -74,16 +76,15 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
   const [email, setEmail] = useState(user.email ?? "");
   const [avatar, setAvatar] = useState(user.avatar ?? "");
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
-  const [saveErr, setSaveErr] = useState("");
   const [uploadBusy, setUploadBusy] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwdBusy, setPwdBusy] = useState(false);
-  const [pwdMsg, setPwdMsg] = useState("");
-  const [pwdErr, setPwdErr] = useState("");
+
+  // 全站统一提示：结果与错误都用弹窗，不再在页面里插 .notice 段落
+  const { alert: notify } = useFeedback();
 
   async function patchProfile(payload: {
     name?: string;
@@ -107,17 +108,23 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setSaveErr("");
-    setSaveMsg("");
     setUploadBusy(true);
     try {
       const { url, deduped } = await uploadAvatar(file);
       setAvatar(url);
       // 上传后直接保存，少一步点击（也避免手工编辑出非法 URL）
       await patchProfile({ name, email, avatar: url });
-      setSaveMsg(deduped ? "该图片已存在，直接复用（未重复上传）" : "头像已上传并保存");
+      void notify({
+        title: deduped ? "头像已复用" : "头像已更新",
+        description: deduped
+          ? "这张图之前上传过，直接引用了同一份，没有重复占用空间。"
+          : "新头像已保存并生效。",
+      });
     } catch (err) {
-      setSaveErr(err instanceof Error ? err.message : "图片上传失败");
+      void notify({
+        title: "头像上传失败",
+        description: err instanceof Error ? err.message : "请稍后重试",
+      });
     } finally {
       setUploadBusy(false);
     }
@@ -126,13 +133,14 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setSaveErr("");
-    setSaveMsg("");
     try {
       await patchProfile({ name, email, avatar });
-      setSaveMsg("已保存");
+      void notify({ title: "已保存", description: "昵称、邮箱与头像已更新。" });
     } catch (err) {
-      setSaveErr(err instanceof Error ? err.message : "保存失败");
+      void notify({
+        title: "保存失败",
+        description: err instanceof Error ? err.message : "请稍后重试",
+      });
     } finally {
       setSaving(false);
     }
@@ -140,10 +148,11 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    setPwdErr("");
-    setPwdMsg("");
     if (newPassword !== confirmPassword) {
-      setPwdErr("两次输入的新密码不一致");
+      void notify({
+        title: "两次密码不一致",
+        description: "请重新输入一次新密码。",
+      });
       return;
     }
     setPwdBusy(true);
@@ -155,15 +164,18 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setPwdErr(data.error ?? "修改失败");
+        void notify({
+          title: "密码未修改",
+          description: data.error ?? "请检查当前密码是否正确",
+        });
         return;
       }
-      setPwdMsg("密码已更新");
+      void notify({ title: "密码已更新", description: "下次登录请使用新密码。" });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch {
-      setPwdErr("网络错误，修改失败");
+      void notify({ title: "密码未修改", description: "网络错误，请稍后重试" });
     } finally {
       setPwdBusy(false);
     }
@@ -190,7 +202,7 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
             <div className="avatar-preview">
               {avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatar} alt="头像预览" />
+                <img src={toSiteImageUrl(avatar)} alt="头像预览" />
               ) : (
                 <span>{initialOf(user)}</span>
               )}
@@ -258,9 +270,6 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
               />
             </div>
 
-            {saveErr && <p className="notice error">{saveErr}</p>}
-            {saveMsg && <p className="notice info">{saveMsg}</p>}
-
             <div className="profile-actions">
               <button className="btn" type="submit" disabled={saving}>
                 {saving ? "保存中…" : "保存修改"}
@@ -305,9 +314,6 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
                 required
               />
             </div>
-
-            {pwdErr && <p className="notice error">{pwdErr}</p>}
-            {pwdMsg && <p className="notice info">{pwdMsg}</p>}
 
             <div className="profile-actions">
               <button className="btn" type="submit" disabled={pwdBusy}>

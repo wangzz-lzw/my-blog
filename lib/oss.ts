@@ -63,12 +63,42 @@ function normalizeBaseUrl(raw?: string): string | undefined {
   return `https://${bare}`;
 }
 
-/** 对象的公开访问地址：优先自定义域名，否则默认 bucket 域名 */
+/** 对象的公开访问地址：优先自定义域名，否则默认 bucket 域名。
+ *  注意：这是「服务端内部用」的直链，页面里不要用它——对外一律走 siteImagePath。 */
 export function publicUrl(key: string): string {
   const e = ossEnv();
   const base = normalizeBaseUrl(e.publicBaseUrl);
   if (base) return `${base}/${key}`;
   return `https://${e.bucket}.${e.region}.aliyuncs.com/${key}`;
+}
+
+/**
+ * 站内图片地址：页面上只出现 `/img/<文件名>`，
+ * 桶名、地域、内容哈希组成的 OSS 直链不暴露给浏览器（由 /img 路由代理取对象）。
+ */
+export function siteImagePath(key: string): string {
+  return `/img/${key.replace(/^img\//, "")}`;
+}
+
+/** 从 OSS 读取对象（供 /img 代理路由使用）；不存在返回 null */
+export async function readObject(
+  key: string
+): Promise<{ body: Buffer; contentType: string } | null> {
+  try {
+    const res = await client().get(key);
+    const content = (res as unknown as { content?: Buffer }).content;
+    if (!content) return null;
+    const headers = (res as unknown as { res?: { headers?: Record<string, string> } })
+      .res?.headers;
+    const contentType =
+      headers?.["content-type"] ?? headers?.["Content-Type"] ?? "application/octet-stream";
+    return { body: content, contentType };
+  } catch (e) {
+    const code = (e as { code?: string; status?: number }).code;
+    const status = (e as { status?: number }).status;
+    if (code === "NoSuchKey" || status === 404) return null;
+    throw e;
+  }
 }
 
 /** 对象是否已存在（用于内容去重：同图不重复上传） */

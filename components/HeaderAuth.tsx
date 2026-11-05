@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogoutControl } from "@/components/LogoutControl";
+import { UserMenu } from "@/components/UserMenu";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 type SessionUser = {
   id: string;
@@ -67,6 +68,7 @@ export function HeaderAuth() {
   if (!user) {
     return (
       <div className="nav-account">
+        <ThemeSwitcher />
         <Link href="/register" className="register-link">
           注册
         </Link>
@@ -77,42 +79,18 @@ export function HeaderAuth() {
     );
   }
 
-  const isAdmin = user.role === "ADMIN";
-  // 标签：昵称 / 用户名 / 邮箱 @ 前缀，超 10 字符截断
-  const source =
-    user.name?.trim() ||
-    user.username?.trim() ||
-    user.email?.split("@")[0] ||
-    "user";
-  const label = source.length > 10 ? source.slice(0, 10) + "…" : source;
-  const initial = (user.name?.trim() || user.username || user.email || "U")
-    .charAt(0)
-    .toUpperCase();
-  const who = user.username || user.email || user.name || "";
-
+  // 登录后：个人资料 / 后台 / 配色主题 / 退出全部收进点击用户名展开的菜单
   return (
     <div className="nav-account">
-      {isAdmin && (
-        <Link href="/admin" className="admin-entry">
-          后台
-        </Link>
-      )}
-      <Link
-        href="/profile"
-        className="user-chip"
-        title={`已登录：${who}（个人资料）`}
-      >
-        <span className="user-avatar">
-          {user.avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.avatar} alt="" />
-          ) : (
-            initial
-          )}
-        </span>
-        <span className="user-label">{label}</span>
-      </Link>
-      <LogoutControl />
+      <UserMenu
+        user={{
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role,
+        }}
+      />
     </div>
   );
 }

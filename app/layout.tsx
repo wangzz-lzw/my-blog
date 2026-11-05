@@ -3,7 +3,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { HeaderAuth } from "@/components/HeaderAuth";
 import { SiteNav } from "@/components/SiteNav";
-import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
 import { SITE_NAME } from "@/lib/site";
 import "./globals.css";
 import "./redesign.css";
@@ -28,7 +28,8 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {"try{var t=localStorage.getItem('theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'daylight':'cyber'}document.documentElement.dataset.theme=t}catch(e){}"}
         </Script>
-        <header id="top" className="site-header">
+        <FeedbackProvider>
+          <header id="top" className="site-header">
           <div className="container">
             <Link href="/" className="site-brand" aria-label={`${SITE_NAME} 首页`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -46,7 +47,6 @@ export default function RootLayout({
             <nav className="site-nav" aria-label="站点导航">
               <SiteNav />
               <HeaderAuth />
-              <ThemeSwitcher />
             </nav>
           </div>
         </header>
@@ -59,6 +59,7 @@ export default function RootLayout({
             <a href="#top">回到顶部 ↑</a>
           </div>
         </footer>
+        </FeedbackProvider>
       </body>
     </html>
   );

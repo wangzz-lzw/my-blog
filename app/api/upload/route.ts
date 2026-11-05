@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isOssConfigured, objectExists, publicUrl, uploadImage } from "@/lib/oss";
+import {
+  isOssConfigured,
+  objectExists,
+  siteImagePath,
+  uploadImage,
+} from "@/lib/oss";
 
 export const runtime = "nodejs";
 
@@ -60,16 +65,8 @@ export async function POST(req: NextRequest) {
     if (!exists) {
       await uploadImage(key, buf, file.type);
     }
-    const url = publicUrl(key);
-    if (!/^https:\/\//.test(url)) {
-      return NextResponse.json(
-        {
-          error:
-            "OSS 配置异常：生成的图片地址不是 https 链接，请检查 OSS_PUBLIC_BASE_URL",
-        },
-        { status: 500 }
-      );
-    }
+    // 只返回站内地址：OSS 的桶名/地域不出现在响应里（/img 路由负责代理取对象）
+    const url = siteImagePath(key);
     return NextResponse.json({ ok: true, url, key, kind, deduped: exists });
   } catch (e) {
     const message = e instanceof Error ? e.message : "上传失败";

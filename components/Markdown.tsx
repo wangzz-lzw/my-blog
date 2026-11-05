@@ -6,6 +6,7 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypeExternalLinks from "rehype-external-links";
 import rehypeHighlight from "rehype-highlight";
 import { CodeBlock } from "@/components/CodeBlock";
+import { toSiteImageUrl } from "@/lib/image-url";
 
 /**
  * 统一 Markdown 渲染管线（SSR 安全，文章页与后台预览共用）：
@@ -35,6 +36,16 @@ const components: Components = {
   // 否则 SSR 显示 ts、hydration 后显示 text，导致不一致
   pre: ({ node, children }) => (
     <CodeBlock language={codeLanguage(node)}>{children}</CodeBlock>
+  ),
+  // 图片：地址统一收口到站内 /img（历史 OSS 直链也在这里改写），懒加载 + 异步解码
+  img: ({ node, src, ...props }) => (
+    // eslint-disable-next-line jsx-a11y/alt-text
+    <img
+      {...props}
+      src={toSiteImageUrl(typeof src === "string" ? src : undefined)}
+      loading="lazy"
+      decoding="async"
+    />
   ),
   // 必须把 node 从 props 里摘掉：否则会作为 node="[object Object]" 落到 DOM；
   // className 也要保留（标题锚点 .heading-anchor 靠它），只追加外链标记。

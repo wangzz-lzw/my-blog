@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/date";
 import { readTime } from "@/lib/read-time";
+import { decodeSlugParam } from "@/lib/slug";
 
 export const revalidate = 60;
 export const dynamicParams = true;
@@ -12,7 +13,8 @@ export default async function TagPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlugParam(rawSlug);
 
   const tag = await prisma.tag.findUnique({
     where: { slug },

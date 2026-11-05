@@ -142,6 +142,126 @@ body {
   gap: 0.9rem;
 }
 
+/* ---------- 账号菜单（Radix DropdownMenu） ---------- */
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  border-radius: 999px;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+}
+
+.user-chip:hover,
+.user-chip[data-state="open"] {
+  border-color: var(--ink-3);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.user-caret {
+  font-size: 0.6rem;
+  color: var(--ink-3);
+  transition: transform 0.18s;
+}
+
+.user-chip[data-state="open"] .user-caret {
+  transform: rotate(180deg);
+}
+
+.user-menu {
+  z-index: 120;
+  min-width: 12.5rem;
+  padding: 0.35rem;
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: var(--shadow-strong);
+  font-size: 0.86rem;
+  color: var(--fg);
+}
+
+.user-menu-sub {
+  min-width: 10.5rem;
+}
+
+.user-menu-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.6rem 0.5rem;
+}
+
+.user-menu-name {
+  font-size: 0.88rem;
+  color: var(--fg-bright);
+}
+
+.user-menu-handle {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+}
+
+.user-menu-sep {
+  height: 1px;
+  margin: 0.3rem 0;
+  background: var(--rule-soft);
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.45rem 0.6rem;
+  border-radius: 2px;
+  color: var(--ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+
+/* Radix 用 data-highlighted 标当前键盘/指针焦点项 */
+.user-menu-item[data-highlighted],
+.user-menu-item:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--fg-bright);
+}
+
+.user-menu-value {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+}
+
+.user-menu-danger {
+  color: color-mix(in srgb, var(--accent-2) 78%, var(--fg));
+}
+
+.user-menu-danger[data-highlighted],
+.user-menu-danger:hover {
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  color: var(--accent-2);
+}
+
+.user-menu-theme .theme-dots {
+  margin-right: 0.1rem;
+}
+
+.user-menu-theme[data-state="checked"]::after {
+  content: "✓";
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
 /* ---------- 首页账本 ---------- */
 
 .ledger {
@@ -740,6 +860,26 @@ body {
   border-top: 1px solid var(--rule-soft);
 }
 
+/* 正文配图：去掉旧版的发光与圆角，和账本式的发丝线一致 */
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule-soft);
+  border-radius: 2px;
+  filter: none;
+}
+
+/* 单独成段的图独占一行，和图注、代码卡对齐 */
+.prose p > img:only-child {
+  display: block;
+  margin: 1.7em 0;
+}
+
+/* 小图（截图/图标）别被拉成整行宽 */
+.prose p > img:only-child {
+  max-width: min(100%, 46rem);
+}
+
 .prose table {
   font-size: 0.92rem;
 }
@@ -1167,8 +1307,7 @@ textarea::placeholder {
 }
 
 .editor.is-fullscreen .editor-head,
-.editor.is-fullscreen .editor-meta,
-.editor.is-fullscreen .notice {
+.editor.is-fullscreen .editor-meta {
   display: none;
 }
 
@@ -1222,6 +1361,127 @@ body.editor-fs-lock {
 
 .editor:fullscreen::backdrop {
   background: var(--bg-deep);
+}
+
+/* ---------- 全站提示弹窗（Radix AlertDialog，行为由 Radix 提供） ---------- */
+
+.fb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: color-mix(in srgb, #000 58%, transparent);
+}
+
+[data-theme="daylight"] .fb-overlay {
+  background: color-mix(in srgb, #0f1720 34%, transparent);
+}
+
+.fb-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 201;
+  transform: translate(-50%, -50%);
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.25rem 1.35rem 1.05rem;
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: var(--shadow-strong);
+  color: var(--fg);
+}
+
+.fb-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--fg-bright);
+}
+
+.fb-desc {
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+
+.fb-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1.3rem;
+}
+
+.fb-btn {
+  padding: 0.45rem 0.95rem;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.fb-btn:hover {
+  border-color: var(--ink-3);
+  color: var(--fg-bright);
+}
+
+.fb-primary {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--fg-bright);
+}
+
+.fb-primary:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+}
+
+.fb-danger {
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent-2) 60%, transparent);
+  color: var(--accent-2);
+}
+
+.fb-danger:hover {
+  background: color-mix(in srgb, var(--accent-2) 22%, transparent);
+  border-color: var(--accent-2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fb-overlay[data-state="open"] {
+    animation: fb-fade 140ms ease-out;
+  }
+
+  .fb-dialog[data-state="open"] {
+    animation: fb-pop 160ms ease-out;
+  }
+}
+
+@keyframes fb-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fb-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
 
 /* ---------- 页脚 ---------- */

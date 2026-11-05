@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatDate } from "@/lib/date";
+import { useFeedback } from "@/components/feedback/FeedbackProvider";
 
 type CommentRow = {
   id: string;
@@ -16,6 +17,7 @@ type CommentRow = {
 export default function AdminCommentsPage() {
   const [rows, setRows] = useState<CommentRow[] | null>(null);
   const [error, setError] = useState("");
+  const { alert: notify, confirm } = useFeedback();
 
   useEffect(() => {
     fetch("/api/comments", { cache: "no-store" })
@@ -37,18 +39,34 @@ export default function AdminCommentsPage() {
       setRows((prev) =>
         prev?.map((r) => (r.id === id ? { ...r, approved } : r)) ?? null
       );
+    } else {
+      void notify({ title: "操作失败", description: "审核状态没有保存成功。" });
     }
   }
 
   async function remove(id: string) {
-    if (!window.confirm("确定删除这条评论？")) return;
+    const ok = await confirm({
+      title: "删除这条评论？",
+      description: "删除后无法恢复，评论内容会从文章页消失。",
+      confirmText: "删除",
+      tone: "danger",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/comments/${id}`, { method: "DELETE" });
     if (res.ok) {
       setRows((prev) => prev?.filter((r) => r.id !== id) ?? null);
+    } else {
+      void notify({ title: "删除失败", description: "请稍后重试。" });
     }
   }
 
-  if (error) return <p className="notice error">{error}</p>;
+  if (error) {
+    return (
+      <p className="admin-sub">
+        {error}，请刷新页面重试。
+      </p>
+    );
+  }
 
   return (
     <div className="admin-page">

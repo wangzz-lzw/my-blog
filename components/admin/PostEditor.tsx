@@ -16,6 +16,7 @@ import {
   type ParsedMarkdown,
 } from "@/lib/markdown-import";
 import { Markdown } from "@/components/Markdown";
+import { useFeedback } from "@/components/feedback/FeedbackProvider";
 
 type EditorTag = { id: string; name: string; slug: string };
 
@@ -45,6 +46,7 @@ export function PostEditor({ post }: { post?: EditorPost }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const coverFileRef = useRef<HTMLInputElement | null>(null);
   const mdFileRef = useRef<HTMLInputElement | null>(null);
+  const imageFileRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState(post?.title ?? "");
   const [slug, setSlug] = useState(post?.slug ?? "");
@@ -64,6 +66,28 @@ export function PostEditor({ post }: { post?: EditorPost }) {
   const [fsMode, setFsMode] = useState<FullscreenMode>("off");
   // 已解析待确认的导入（编辑器里有内容时先问，不直接覆盖）
   const [pendingImport, setPendingImport] = useState<ParsedMarkdown | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [hint, setHint] = useState("");
+  const { alert: notify } = useFeedback();
+
+  // 编辑器里的三类提示统一走全站弹窗；拿到值就清空，避免重复弹出
+  useEffect(() => {
+    if (!error) return;
+    setError("");
+    void notify({ title: "操作失败", description: error });
+  }, [error, notify]);
+
+  useEffect(() => {
+    if (!aiMsg) return;
+    setAiMsg("");
+    void notify({ title: "AI 摘要", description: aiMsg });
+  }, [aiMsg, notify]);
+
+  useEffect(() => {
+    if (!hint) return;
+    setHint("");
+    void notify({ title: "提示", description: hint });
+  }, [hint, notify]);
 
   // 窄屏默认只显示编辑区，避免两栏挤在一起
   useEffect(() => {
@@ -237,6 +261,15 @@ export function PostEditor({ post }: { post?: EditorPost }) {
     setTags(next.tags);
     setError("");
     setPendingImport(null);
+    // 导入的 md 里如果有相对路径图片，这里无法访问到那些文件，明确提示一次
+    const localImages = (
+      next.content.match(/!\[[^\]]*\]\((?!https?:\/\/|data:|#)[^)\s]+\)/g) ?? []
+    ).length;
+    setHint(
+      localImages > 0
+        ? `正文里有 ${localImages} 处本地图片引用（相对路径），博客看不到它们；请用「插入图片」重新上传到 OSS`
+        : ""
+    );
     const caret = strategy === "append" ? next.content.length : 0;
     requestAnimationFrame(() => {
       const ta = textareaRef.current;
@@ -280,6 +313,72 @@ export function PostEditor({ post }: { post?: EditorPost }) {
       return;
     }
     applyImport(parsed, "replace");
+  }
+
+  /** 图片先传到阿里云 OSS（复用 /api/upload，内容寻址去重），再把 Markdown 语法插进正文 */
+  async function uploadImageToOss(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("kind", "image");
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? "图片上传失败");
+    if (typeof data.url !== "string" || !data.url) {
+      throw new Error("图片上传成功但没有拿到地址");
+    }
+    return data.url;
+  }
+
+  /** 粘贴 / 拖入 / 选择文件三条入口共用 */
+  async function handleImageFiles(fileList: FileList | File[] | null) {
+    const files = Array.from(fileList ?? []).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    if (!files.length) return;
+    setError("");
+    setHint("");
+    setImageBusy(true);
+    try {
+      const snippets: string[] = [];
+      for (const file of files) {
+        const url = await uploadImageToOss(file);
+        const alt = file.name.replace(/\.[^.]+$/, "") || "图片";
+        snippets.push(`![${alt}](${url})`);
+      }
+      insertBlock(snippets.join("\n\n") + "\n");
+      setHint(`已上传 ${files.length} 张图片并插入正文`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "图片上传失败");
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  /** 粘贴截图：剪贴板里有图片就拦截，走上传 */
+  function onEditorPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const files = e.clipboardData?.files;
+    if (
+      files &&
+      files.length > 0 &&
+      Array.from(files).some((f) => f.type.startsWith("image/"))
+    ) {
+      e.preventDefault();
+      void handleImageFiles(files);
+    }
+  }
+
+  function onEditorDragOver(e: React.DragEvent<HTMLFormElement>) {
+    if (Array.from(e.dataTransfer?.types ?? []).includes("Files")) {
+      e.preventDefault();
+    }
+  }
+
+  function onEditorDrop(e: React.DragEvent<HTMLFormElement>) {
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    if (!Array.from(files).some((f) => f.type.startsWith("image/"))) return;
+    e.preventDefault();
+    void handleImageFiles(files);
   }
 
   async function handleAi() {
@@ -352,6 +451,8 @@ export function PostEditor({ post }: { post?: EditorPost }) {
         fsMode === "immersive" ? " is-immersive" : ""
       }`}
       onSubmit={handleSubmit}
+      onDragOver={onEditorDragOver}
+      onDrop={onEditorDrop}
     >
       <div className="editor-head">
         <h1>{isEdit ? "编辑文章" : "写文章"}</h1>
@@ -387,9 +488,6 @@ export function PostEditor({ post }: { post?: EditorPost }) {
           </button>
         </div>
       </div>
-
-      {error && <p className="notice error">{error}</p>}
-      {aiMsg && <p className="notice info">{aiMsg}</p>}
 
       {pendingImport && (
         <div
@@ -544,6 +642,28 @@ export function PostEditor({ post }: { post?: EditorPost }) {
           <button
             type="button"
             className="btn btn-sm ghost"
+            onClick={() => imageFileRef.current?.click()}
+            disabled={imageBusy}
+            aria-label="插入图片"
+            title="插入图片：选择文件，或直接把截图粘贴 / 拖进编辑器（自动上传到 OSS）"
+          >
+            {imageBusy ? "上传中…" : "插入图片"}
+          </button>
+          <input
+            ref={imageFileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              const files = e.target.files;
+              e.target.value = "";
+              void handleImageFiles(files);
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-sm ghost"
             onClick={() => mdFileRef.current?.click()}
             aria-label="导入 Markdown 文件"
             title="导入 .md / .markdown / .txt（≤1MB）"
@@ -599,7 +719,8 @@ export function PostEditor({ post }: { post?: EditorPost }) {
             className="editor-textarea"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="在此书写 Markdown 正文…"
+            onPaste={onEditorPaste}
+            placeholder="在此书写 Markdown 正文…（截图可直接粘贴，图片会自动上传到 OSS）"
             required
             spellCheck={false}
           />

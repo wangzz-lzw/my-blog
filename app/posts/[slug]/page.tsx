@@ -4,6 +4,7 @@ import { Markdown } from "@/components/Markdown";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/date";
 import { readTime } from "@/lib/read-time";
+import { decodeSlugParam } from "@/lib/slug";
 import { CommentForm } from "@/components/CommentForm";
 import { GsapReveal } from "@/components/GsapReveal";
 import { ImmersiveToggle } from "@/components/ImmersiveToggle";
@@ -14,13 +15,19 @@ import type { SafeComment } from "@/lib/types";
 export const revalidate = 60;
 export const dynamicParams = true;
 
+/**
+ * 动态段参数在这里是「未解码」的原始片段（含中文的 slug 会以 %E7%AC%AC… 形式到达），
+ * 直接用去查库必然查不到，所以统一从 lib/slug 解码一次。
+ */
+
 /** 文章页标题交给 layout 的 `%s | 站点名` 模板，避免标签页只显示站点名 */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: raw } = await params;
+  const slug = decodeSlugParam(raw);
   const post = await prisma.post.findUnique({
     where: { slug },
     select: { title: true, excerpt: true, published: true },
@@ -37,7 +44,8 @@ export default async function PostPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlugParam(rawSlug);
 
   const post = await prisma.post.findUnique({
     where: { slug },

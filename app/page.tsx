@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { readTime } from "@/lib/read-time";
+import { toSiteImageUrl } from "@/lib/image-url";
 import type { PostWithTags } from "@/lib/types";
 import { GsapReveal } from "@/components/GsapReveal";
 
@@ -80,7 +81,7 @@ export default async function HomePage() {
                     tabIndex={-1}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={featured.cover} alt="" />
+                    <img src={toSiteImageUrl(featured.cover)} alt="" />
                   </Link>
                 )}
                 <h2 className="entry-title">

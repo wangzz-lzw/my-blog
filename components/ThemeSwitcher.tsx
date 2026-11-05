@@ -1,27 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { applyTheme, currentTheme, THEMES, type ThemeId } from "@/lib/theme";
 
-const THEMES = [
-  { id: "cyber", name: "赛博青", swatch: ["#00f0ff", "#ff2a6d", "#05070d"] },
-  { id: "indigo", name: "午夜靛", swatch: ["#7aa2ff", "#c084fc", "#070913"] },
-  { id: "ember", name: "余烬橙", swatch: ["#ff9f45", "#ff5c8a", "#0e0703"] },
-  { id: "forest", name: "苔原绿", swatch: ["#3ddc97", "#ffd166", "#040a07"] },
-  { id: "sakura", name: "樱雾粉", swatch: ["#ff7ac6", "#8b5cf6", "#0c0710"] },
-  { id: "daylight", name: "晨光白", swatch: ["#f5f7fa", "#0a6f92", "#c0246a"] },
-] as const;
-
-type ThemeId = (typeof THEMES)[number]["id"];
-
-/** 页头/侧栏的主题切换器：写入 <html data-theme> + localStorage */
+/** 页头（未登录）/后台侧栏的主题切换器：写入 <html data-theme> + localStorage */
 export function ThemeSwitcher() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeId>("cyber");
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const t = document.documentElement.dataset.theme as ThemeId | undefined;
-    if (t && THEMES.some((x) => x.id === t)) setTheme(t);
+    setTheme(currentTheme());
   }, []);
 
   useEffect(() => {
@@ -44,12 +33,7 @@ export function ThemeSwitcher() {
 
   function choose(id: ThemeId) {
     setTheme(id);
-    document.documentElement.dataset.theme = id;
-    try {
-      localStorage.setItem("theme", id);
-    } catch {
-      // 隐私模式下忽略
-    }
+    applyTheme(id);
     setOpen(false);
   }
 
