@@ -23,6 +23,24 @@ function stamp(d: Date | null) {
   };
 }
 
+/**
+ * 封面：右栏的一块"样本"，不是开场大图。
+ * 标题先被读到，图只做旁证；装饰性的，对辅助技术与 Tab 序都隐藏。
+ */
+function EntryCover({ slug, cover }: { slug: string; cover: string }) {
+  return (
+    <Link
+      href={`/posts/${slug}`}
+      className="entry-cover"
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={toSiteImageUrl(cover)} alt="" loading="lazy" />
+    </Link>
+  );
+}
+
 export default async function HomePage() {
   const [posts, allTags, popular, latestComments] = await Promise.all([
     prisma.post.findMany({
@@ -74,23 +92,15 @@ export default async function HomePage() {
             开发笔记与生活随想。按时间倒排，越新的越靠上。
           </p>
           {featured ? (
-            <article className="entry entry--lead" data-reveal>
+            <article
+              className={`entry entry--lead${featured.cover ? " has-cover" : ""}`}
+              data-reveal
+            >
               <div className="entry-when">
                 <span className="entry-day">{stamp(featured.publishedAt).day}</span>
                 <span className="entry-ym">{stamp(featured.publishedAt).ym}</span>
               </div>
               <div className="entry-body">
-                {featured.cover && (
-                  <Link
-                    href={`/posts/${featured.slug}`}
-                    className="entry-figure"
-                    aria-hidden="true"
-                    tabIndex={-1}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={toSiteImageUrl(featured.cover)} alt="" />
-                  </Link>
-                )}
                 <h2 className="entry-title">
                   <Link href={`/posts/${featured.slug}`}>{featured.title}</Link>
                 </h2>
@@ -113,6 +123,7 @@ export default async function HomePage() {
                   )}
                 </p>
               </div>
+              {featured.cover && <EntryCover slug={featured.slug} cover={featured.cover} />}
             </article>
           ) : (
             <p className="entry-empty">
@@ -121,7 +132,10 @@ export default async function HomePage() {
           )}
 
           {rest.map((post) => (
-            <article className="entry" key={post.id}>
+            <article
+              className={`entry${post.cover ? " has-cover" : ""}`}
+              key={post.id}
+            >
               <div className="entry-when">
                 <span className="entry-day">{stamp(post.publishedAt).day}</span>
                 <span className="entry-ym">{stamp(post.publishedAt).ym}</span>
@@ -149,6 +163,7 @@ export default async function HomePage() {
                   )}
                 </p>
               </div>
+              {post.cover && <EntryCover slug={post.slug} cover={post.cover} />}
             </article>
           ))}
 

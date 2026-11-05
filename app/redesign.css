@@ -272,9 +272,16 @@ body {
 .entry {
   display: grid;
   grid-template-columns: var(--gutter) minmax(0, 1fr);
+  grid-template-areas: "when body";
   column-gap: 1.75rem;
   padding: 1.75rem 0;
   border-top: 1px solid var(--rule-soft);
+}
+
+/* 有封面时多一栏：封面是右缘的一块样本，不参与文字流 */
+.entry.has-cover {
+  grid-template-columns: var(--gutter) minmax(0, 1fr) auto;
+  grid-template-areas: "when body cover";
 }
 
 /* 首页开头的定位句：说明这一页是什么，顺便给账本起一条线 */
@@ -296,6 +303,7 @@ body {
 
 /* 日期栏：时间轴对齐，是这一版唯一的"结构线" */
 .entry-when {
+  grid-area: when;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -323,6 +331,7 @@ body {
 }
 
 .entry-body {
+  grid-area: body;
   min-width: 0;
 }
 
@@ -428,22 +437,64 @@ body {
   color: var(--accent);
 }
 
-/* 头条封面（有图才出现）：宽画幅，不做圆角与阴影 */
-.entry-figure {
+/* 封面：右栏的样本。直角、发丝线、去饱和一点，跟账本的线是同一套语言 */
+.entry-cover {
+  grid-area: cover;
   display: block;
-  margin: 0 0 1.4rem;
-  aspect-ratio: 16 / 7;
+  width: clamp(168px, 15vw, 208px);
+  aspect-ratio: 4 / 3;
+  margin-top: 0.3rem;
   overflow: hidden;
   background: var(--bg-2);
   border: 1px solid var(--rule-soft);
+  transform-origin: right center;
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 0.2s;
 }
 
-.entry-figure img {
+.entry--lead .entry-cover {
+  width: clamp(196px, 17vw, 248px);
+}
+
+.entry-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
   filter: saturate(0.92);
+}
+
+/* 唯一的动效：想看就放大（锚在右缘，向左展开）。加纸色描边 + 大半径淡影，
+   让它读作"浮起来的一张图"，压到摘要文字时也不含糊 */
+.entry-cover:hover {
+  transform: scale(1.22);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 24px 48px -28px color-mix(in srgb, var(--fg) 45%, transparent);
+  z-index: 2;
+}
+
+@media (max-width: 900px) {
+  .entry.has-cover {
+    grid-template-columns: var(--gutter) minmax(0, 1fr);
+    grid-template-areas:
+      "when body"
+      ". cover";
+  }
+
+  .entry-cover,
+  .entry--lead .entry-cover {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin-top: 0.9rem;
+    transform-origin: center;
+  }
+
+  .entry-cover:hover {
+    transform: none;
+  }
 }
 
 .entry-empty {
@@ -460,6 +511,113 @@ body {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--ink-3);
+}
+
+/* ---------- 浮动工具组（沉浸阅读 / 回到顶部） ---------- */
+
+/* 两个按钮同一套外壳：40px 圆 + 1px 发丝线 + 等宽符号；横排落在正文栏右下方 */
+.float-tools {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 6rem;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.float-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--rule-soft);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.18s,
+    border-color 0.18s,
+    background 0.18s,
+    opacity 0.22s;
+}
+
+.float-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.float-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 正在沉浸阅读：实心电蓝，符号反白，一眼看出"可以退出" */
+.float-btn.is-active {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 已经是顶部时，回到顶部不可用：留在原位只变淡，组内位置不跳 */
+.float-btn.is-idle {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* 悬停气泡：浮在按钮上方，纸质小牌 */
+.float-bubble {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--rule-soft);
+  background: var(--bg);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+  pointer-events: none;
+}
+
+.float-btn:hover .float-bubble,
+.float-btn:focus-visible .float-bubble {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float-btn,
+  .float-bubble {
+    transition: none;
+  }
+}
+
+/* 窄屏：别浮在页面中间，退回右下角 */
+@media (max-width: 900px) {
+  .float-tools {
+    right: 1.1rem;
+    bottom: 1.1rem;
+  }
+
+  .float-btn {
+    width: 36px;
+    height: 36px;
+  }
 }
 
 /* ---------- 侧栏：题跋，不是卡片墙 ---------- */
@@ -1518,9 +1676,8 @@ body:has(.page-welcome) :focus-visible {
   padding-bottom: clamp(3rem, 11vh, 7rem);
 }
 
-/* 这页自己的细网格：不用任何主题色 */
-.page-welcome::before {
-  content: "";
+/* 这页自己的细网格：真实元素（不再是伪元素），这样 GSAP 才能直接给它做视差 */
+.welcome-grid {
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -1532,28 +1689,312 @@ body:has(.page-welcome) :focus-visible {
   opacity: 0.55;
 }
 
+/* 扫描线：3px 一组的极淡横纹，读作印刷网点 / CRT 栅格 */
+.welcome-scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--w-ink) 6%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+  opacity: 0.55;
+}
+
+/* 扫描光带：一条电蓝横线缓慢下扫，是背景里唯一持续的运动 */
+.welcome-beam {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 1;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--w-signal) 75%, transparent),
+    transparent
+  );
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .welcome-beam {
+    animation: w-beam-sweep 18s linear 3s infinite;
+  }
+}
+
+@keyframes w-beam-sweep {
+  0% {
+    transform: translateY(-2vh);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.85;
+  }
+  90% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(102vh);
+    opacity: 0;
+  }
+}
+
+/* HUD 角标：只画对角两角，比四面围一圈更克制 */
+.welcome-hud {
+  position: fixed;
+  inset: 16px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.welcome-hud::before,
+.welcome-hud::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--w-ink) 26%, transparent);
+}
+
+.welcome-hud::before {
+  top: 0;
+  left: 0;
+  border-width: 1px 0 0 1px;
+}
+
+.welcome-hud::after {
+  right: 0;
+  bottom: 0;
+  border-width: 0 1px 1px 0;
+}
+
 .welcome-inner {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 34rem) minmax(0, 1fr);
+  column-gap: clamp(2rem, 5vw, 5rem);
+  align-items: start;
+  width: 100%;
+}
+
+.welcome-copy {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  max-width: 34rem;
+  min-width: 0;
 }
 
-.welcome-mark {
+/* 右栏舞台：环形导航与登录面板共用一块空间。
+   面板（绝对定位）压在上面，轨道在下面转。 */
+.welcome-stage {
+  position: relative;
+  min-height: 26rem;
+  min-width: 0;
+}
+
+/* 右栏：登录面板的落点。面板没打开时这里就是空的，不占视觉重量；
+   用 relative 作为绝对定位的参照，面板因此完全不参与文档流——开关/切 tab 都不会推动页面 */
+.welcome-auth-slot {
+  position: relative;
+  z-index: 5;
+  min-height: 1px;
+  min-width: 0;
+  padding-top: 0.4rem;
+}
+
+/* ---------- 环形文章导航 ---------- */
+
+.welcome-orbit {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+/* 默认形态：卡片网格（无 JS / 窄屏都用它）。
+   用网格而不是一整排长条，窄屏下可读性更好。 */
+.welcome-orbit-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-orbit-list .orbit-item {
+  --card-w: 9rem;
+  --card-h: 9.6rem;
+  width: auto;
+  height: var(--card-h);
+}
+
+.orbit-card {
   display: block;
-  width: clamp(64px, 9vw, 104px);
-  height: auto;
-  margin-bottom: 1.6rem;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--w-paper);
+  border: 1px solid color-mix(in srgb, var(--w-ink) 14%, transparent);
+  /* 大半径、低浓度的投影只用来交代"离镜头多远"，不是卡片装饰 */
+  box-shadow: 0 22px 48px -30px color-mix(in srgb, var(--w-ink) 55%, transparent);
+  text-decoration: none;
+  transition: border-color 0.2s;
+}
+
+.orbit-card:hover,
+.orbit-card:focus-visible {
+  border-color: var(--w-signal);
+  transform: none;
+}
+
+/* 有封面：图当背景，文字压在图上 —— 用一层从底往上的墨色渐变把字托起来 */
+.orbit-text-cover[data-has-cover="true"] {
+  position: relative;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.orbit-text-cover[data-has-cover="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* 按最坏情况（近白照片）配的压暗量：顶部也有 55%，保证白字达标 */
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--w-ink) 92%, transparent) 0%,
+    color-mix(in srgb, var(--w-ink) 72%, transparent) 45%,
+    color-mix(in srgb, var(--w-ink) 55%, transparent) 100%
+  );
+}
+
+.orbit-text-cover[data-has-cover="true"] > * {
+  position: relative;
+  z-index: 1;
+}
+
+.orbit-text-cover[data-has-cover="true"] .orbit-title {
+  color: #ffffff;
+  text-shadow: 0 1px 3px color-mix(in srgb, var(--w-ink) 55%, transparent);
+}
+
+.orbit-text-cover[data-has-cover="true"] .orbit-meta {
+  color: rgba(255, 255, 255, 0.86);
+  border-top-color: rgba(255, 255, 255, 0.34);
+}
+
+/* 文字封面：等宽标题 + 底部标签/日期 + 顶部一截洋红短线 */
+.orbit-text-cover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  height: 100%;
+  padding: 0.6rem 0.65rem 0.5rem;
+}
+
+.orbit-mark {
+  width: 1.4rem;
+  height: 2px;
+  background: var(--w-signal-2);
+}
+
+.orbit-title {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--w-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.orbit-meta {
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--w-line);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 400;
+  color: var(--w-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 3D 形态：圆筒。卡片用 JS 写成 rotateY(角度) translateZ(半径)，
+   背面朝向观众的卡片自动隐藏（backface-visibility: hidden），环整体由 GSAP 转 rotationY */
+.welcome-orbit.is-orbit {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.welcome-orbit.is-orbit.is-grabbing {
+  cursor: grabbing;
+}
+
+/* 倾斜层：自转写在里面的 ul 上，倾斜写在这一层，互不抢 transform */
+.welcome-orbit.is-orbit .orbit-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.welcome-orbit-list.is-orbiting {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-style: preserve-3d;
+}
+
+.welcome-orbit-list.is-orbiting .orbit-item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--card-w);
+  height: var(--card-h);
+  margin: 0;
+  backface-visibility: hidden;
+  /* transform 由 JS 写：translate(-50%, -50%) rotateY(a) translateZ(r) */
+}
+
+/* 文字粒子层：盖在字标之上，纯装饰 */
+.welcome-text-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* 提示符行：caret + 词标 + 光标块，同一基线、同一左缘 */
+.welcome-prompt-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+  font-family: var(--font-mono);
+  font-size: clamp(1.9rem, 4.2vw, 2.9rem);
+  line-height: 1.1;
+}
+
+.welcome-prompt {
+  color: var(--w-signal);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--w-signal) 40%, transparent);
 }
 
 .welcome-wordmark {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  font-size: inherit;
   font-weight: 500;
-  line-height: 1.1;
+  line-height: inherit;
   letter-spacing: 0.18em;
   color: var(--w-ink);
 }
@@ -1562,13 +2003,42 @@ body:has(.page-welcome) :focus-visible {
   display: inline-block;
 }
 
+/* 终端光标：常亮，每 1.6s 短闪一次（占空比约 12%，不是 50% 的闪烁） */
+.welcome-caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.72em;
+  background: var(--w-signal-2);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--w-signal-2) 55%, transparent);
+  transform: translateY(0.04em);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .welcome-caret {
+    animation: w-caret-blink 1.6s steps(1, end) infinite;
+  }
+}
+
+@keyframes w-caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 0;
+  }
+}
+
+/* 定位句：左侧一根电蓝竖线，像终端输出里的引用 */
 .welcome-lead {
   margin: 1.7rem 0 0;
-  max-width: 22em;
+  padding-left: 1.1rem;
+  max-width: 21em;
+  border-left: 1px solid color-mix(in srgb, var(--w-signal) 45%, transparent);
   font-family: var(--display);
-  font-size: clamp(1.5rem, 2.6vw, 2.05rem);
+  font-size: clamp(1.4rem, 2.5vw, 1.95rem);
   font-weight: 400;
-  line-height: 1.65;
+  line-height: 1.7;
   letter-spacing: -0.008em;
   color: var(--w-ink);
 }
@@ -1576,7 +2046,7 @@ body:has(.page-welcome) :focus-visible {
 .welcome-rule {
   width: 6rem;
   height: 1px;
-  margin: 2rem 0 1.4rem;
+  margin: 1.9rem 0 1.3rem;
   background: var(--w-line);
 }
 
@@ -1599,24 +2069,64 @@ body:has(.page-welcome) :focus-visible {
   margin-top: 2.6rem;
 }
 
+/* 磁吸位移作用在内层：外层盒（可点击区域）保持不动 */
+.welcome-label {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* 主按钮：切掉两个对角 + 悬停一道扫光，像机箱上的实体键 */
 .welcome-cta {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  padding: 0.62rem 1.25rem;
-  border: 1px solid var(--w-signal);
-  border-radius: 2px;
+  overflow: hidden;
+  padding: 0.72rem 1.45rem;
   background: var(--w-signal);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
   color: #ffffff;
   font-family: var(--font-mono);
   font-size: 0.82rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-decoration: none;
-  transition: background 0.18s, color 0.18s;
+  box-shadow: 0 12px 34px -14px color-mix(in srgb, var(--w-signal) 80%, transparent);
+  transition: background 0.18s;
+}
+
+.welcome-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 15%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 85%
+  );
+  transform: translateX(-130%);
 }
 
 .welcome-cta:hover {
-  background: transparent;
-  color: var(--w-signal);
+  background: color-mix(in srgb, var(--w-signal) 88%, #ffffff);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .welcome-cta:hover::after {
+    animation: w-sweep 0.7s ease-out;
+  }
+}
+
+@keyframes w-sweep {
+  to {
+    transform: translateX(130%);
+  }
 }
 
 .welcome-secondary {
@@ -1637,124 +2147,323 @@ body:has(.page-welcome) :focus-visible {
   background-size: 100% 1px;
 }
 
-/* 一次入场：网格 → caret 描边 → 光标块 → 字标逐字 → 其余就位 */
-@media (prefers-reduced-motion: no-preference) {
-  .page-welcome::before {
-    animation: w-grid-in 700ms ease-out both;
-  }
-
-  .welcome-mark .w-mark-caret {
-    stroke-dasharray: 20;
-    stroke-dashoffset: 20;
-    animation: w-draw 600ms ease-out 120ms both;
-  }
-
-  .welcome-mark .w-mark-cursor {
-    transform-box: fill-box;
-    transform-origin: left center;
-    animation:
-      w-cursor 180ms ease-out 620ms both,
-      w-blink 1.2s steps(1, end) 900ms infinite;
-  }
-
-  .welcome-letter {
-    opacity: 0;
-    animation: w-rise 420ms ease-out both;
-  }
-
-  .welcome-lead,
-  .welcome-rule,
-  .welcome-state,
-  .welcome-actions {
-    opacity: 0;
-    animation: w-rise 480ms ease-out both;
-  }
-
-  .welcome-lead {
-    animation-delay: 880ms;
-  }
-
-  .welcome-rule {
-    animation-delay: 960ms;
-  }
-
-  .welcome-state {
-    animation-delay: 1040ms;
-  }
-
-  .welcome-actions {
-    animation-delay: 1120ms;
-  }
+/* ---------- 入场初始态：只由「JS 已就绪」门控 ----------
+   无 JS 时 html 上没有 js-ready，元素直接是最终态，内容完整可读。
+   有 JS 时这些初始态在首帧前就位，由 GSAP 接管播放。 */
+html.js-ready .welcome-grid {
+  opacity: 0;
 }
 
-/* 减少动效：直接给最终态，别停在动画的初始帧 */
+html.js-ready .welcome-prompt {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+html.js-ready .welcome-caret {
+  transform: scaleY(0);
+}
+
+html.js-ready .welcome-letter {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+html.js-ready .welcome-lead {
+  opacity: 0;
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(10px);
+}
+
+html.js-ready .welcome-rule {
+  transform: scaleX(0);
+}
+
+html.js-ready .welcome-state,
+html.js-ready .welcome-actions {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.welcome-rule {
+  transform-origin: left center;
+}
+
+/* 减少动效：无视门控，直接给最终态（双保险，防止 GSAP 分支未执行时内容被藏住） */
 @media (prefers-reduced-motion: reduce) {
-  .page-welcome::before {
+  html.js-ready .welcome-grid {
     opacity: 0.55;
   }
 
-  .welcome-mark .w-mark-caret {
-    stroke-dashoffset: 0;
-  }
-
-  .welcome-mark .w-mark-cursor {
-    transform: none;
-  }
-
-  .welcome-letter,
-  .welcome-lead,
-  .welcome-rule,
-  .welcome-state,
-  .welcome-actions {
+  html.js-ready .welcome-prompt,
+  html.js-ready .welcome-caret {
     opacity: 1;
     transform: none;
   }
-}
 
-@keyframes w-grid-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.55;
-  }
-}
-
-@keyframes w-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes w-cursor {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes w-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
+  html.js-ready .welcome-letter,
+  html.js-ready .welcome-lead,
+  html.js-ready .welcome-state,
+  html.js-ready .welcome-actions {
     opacity: 1;
+    transform: none;
+    clip-path: none;
+  }
+
+  html.js-ready .welcome-rule {
     transform: none;
   }
 }
 
-@keyframes w-blink {
-  0%,
-  49% {
-    opacity: 1;
+/* ---------- 欢迎页右侧的行内登录面板 ---------- */
+
+.auth-panel {
+  position: relative;
+  width: 100%;
+  max-width: 25rem;
+  padding: 1.4rem 1.5rem 1.6rem;
+  background: var(--w-paper);
+  border: 1px solid var(--w-line);
+  color: var(--w-ink);
+}
+
+/* 宽屏下把面板绝对定位在右栏里：它的高度变化（切 tab）完全不参与页面布局 */
+@media (min-width: 981px) {
+  .auth-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
   }
-  50%,
-  100% {
-    opacity: 0;
+}
+
+/* 面板的两个对角括号，和页面 HUD 角标同一套语言 */
+.auth-panel::before,
+.auth-panel::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-style: solid;
+  border-color: var(--w-signal);
+  pointer-events: none;
+}
+
+.auth-panel::before {
+  top: -1px;
+  left: -1px;
+  border-width: 1px 0 0 1px;
+}
+
+.auth-panel::after {
+  right: -1px;
+  bottom: -1px;
+  border-width: 0 1px 1px 0;
+}
+
+/* 顶边一截电蓝，作为"通电"标记 */
+.auth-seam {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 34%;
+  height: 1px;
+  background: var(--w-signal);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--w-signal) 55%, transparent);
+  pointer-events: none;
+}
+
+.auth-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.3rem;
+}
+
+.auth-tablist {
+  position: relative;
+  display: flex;
+  gap: 1.5rem;
+  padding-bottom: 0.65rem;
+}
+
+.auth-tab {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--w-mute);
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.18s;
+}
+
+.auth-tab:hover,
+.auth-tab[aria-selected="true"] {
+  color: var(--w-ink);
+}
+
+.auth-tab-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 2px;
+  background: var(--w-signal);
+}
+
+.auth-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: 1px solid var(--w-line);
+  border-radius: 0;
+  color: var(--w-mute);
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.auth-close:hover {
+  color: var(--w-ink);
+  border-color: var(--w-ink);
+}
+
+/* 两块面板始终挂载，靠可见性切换——切回来时输入还在。
+   非激活的一块不要用 inset:0（会被拉到容器高度，量不到自身自然高度） */
+.auth-forms {
+  position: relative;
+}
+
+.auth-pane[data-active="false"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 面板内的控件对齐欢迎页的语言：直角、无阴影、切角主按钮 */
+.auth-panel .field label {
+  color: var(--w-mute);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.auth-panel .field input {
+  background: #ffffff;
+  border: 1px solid var(--w-line);
+  border-radius: 0;
+  color: var(--w-ink);
+}
+
+.auth-panel .field input:focus {
+  border-color: color-mix(in srgb, var(--w-signal) 70%, transparent);
+  background: #ffffff;
+}
+
+.auth-panel .btn-block {
+  padding: 0.68rem 1.2rem;
+  background: var(--w-signal);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+}
+
+.auth-panel .btn-block:hover {
+  background: color-mix(in srgb, var(--w-signal) 88%, #ffffff);
+}
+
+@media (max-width: 980px) {
+  .welcome-inner {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 2.4rem;
   }
+
+  .welcome-auth-slot {
+    padding-top: 0;
+  }
+
+  .auth-panel {
+    max-width: 100%;
+  }
+}
+
+/* ---------- 跟随指针的小尾巴（装饰层） ---------- */
+
+.cursor-trail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 300;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* 尾巴由一串小点组成：越靠后越小、越淡，形成拖尾 */
+.cursor-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--w-ink) 82%, transparent);
+  will-change: transform;
+}
+
+.cursor-dot:nth-child(n + 2) {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: color-mix(in srgb, var(--w-ink) 55%, transparent);
+}
+
+.cursor-dot:nth-child(n + 4) {
+  width: 4.5px;
+  height: 4.5px;
+  margin: -2.25px 0 0 -2.25px;
+  background: color-mix(in srgb, var(--w-ink) 32%, transparent);
+}
+
+/* 悬停到可点元素时，尾巴整体换成洋红——比换形状安静得多 */
+.cursor-trail.is-hot .cursor-dot {
+  background: var(--w-signal-2);
+}
+
+.cursor-trail.is-hot .cursor-dot:nth-child(n + 3) {
+  opacity: 0.55;
+}
+
+/* ---------- 出页过渡的遮罩 ---------- */
+
+.welcome-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  background: var(--w-ink);
+  transform: scaleY(0);
+  transform-origin: bottom center;
+  pointer-events: none;
 }
 
 @media (max-width: 720px) {
@@ -1778,7 +2487,7 @@ body:has(.page-welcome) :focus-visible {
 .site-footer {
   margin-top: 0;
   padding: 1.6rem 0 2.2rem;
-  background: transparent;
+  /* background: transparent; */
   border-top: 1px solid var(--rule-soft);
 }
 

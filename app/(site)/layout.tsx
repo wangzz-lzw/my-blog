@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { HeaderAuth } from "@/components/HeaderAuth";
 import { SiteNav } from "@/components/SiteNav";
-import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
+import { FloatTools } from "@/components/FloatTools";
 import { SITE_NAME } from "@/lib/site";
 
 /**
  * 站点外壳：页头 + 主区 + 页脚。
  * 只有 `(site)` 分组下的页面（文章、标签、登录、资料、后台）走这里；
  * 根路径 `/` 的欢迎页在分组之外，是独立门面，没有这层外壳。
+ * 提示弹窗的 FeedbackProvider 在根布局，不在这里。
  */
 export default function SiteLayout({
   children,
@@ -15,7 +16,7 @@ export default function SiteLayout({
   children: React.ReactNode;
 }) {
   return (
-    <FeedbackProvider>
+    <>
       <header id="top" className="site-header">
         <div className="container">
           <Link href="/" className="site-brand" aria-label={`${SITE_NAME} 首页`}>
@@ -45,9 +46,10 @@ export default function SiteLayout({
           <span>
             © {new Date().getFullYear()} {SITE_NAME}
           </span>
-          <a href="#top">回到顶部 ↑</a>
         </div>
       </footer>
-    </FeedbackProvider>
+
+      <FloatTools />
+    </>
   );
 }

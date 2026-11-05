@@ -7,7 +7,6 @@ import { readTime } from "@/lib/read-time";
 import { decodeSlugParam } from "@/lib/slug";
 import { CommentForm } from "@/components/CommentForm";
 import { GsapReveal } from "@/components/GsapReveal";
-import { ImmersiveToggle } from "@/components/ImmersiveToggle";
 import { ReadingProgress } from "@/components/ReadingProgress";
 import { PostViewBeacon } from "@/components/PostViewBeacon";
 import type { SafeComment } from "@/lib/types";
@@ -124,7 +123,6 @@ export default async function PostPage({
       </article>
       </div>
       <PostViewBeacon postId={post.id} />
-      <ImmersiveToggle />
     </GsapReveal>
   );
 }
