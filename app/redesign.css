@@ -1122,6 +1122,35 @@ textarea::placeholder {
   flex-wrap: wrap;
 }
 
+/* 导入确认条：编辑器里已有内容时，先问再写 */
+.editor-import-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.7rem 0.9rem;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border: 1px solid var(--rule);
+}
+
+.editor-import-bar p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  color: var(--fg);
+}
+
+.editor-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.editor.is-fullscreen .editor-import-bar {
+  flex: 0 0 auto;
+}
+
 /* 单栏视图占满整行，而不是缩在左半格里 */
 .editor-split.mode-write,
 .editor-split.mode-preview {

@@ -9,6 +9,12 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/slug";
+import {
+  mergeImport,
+  parseMarkdownDocument,
+  type ImportStrategy,
+  type ParsedMarkdown,
+} from "@/lib/markdown-import";
 import { Markdown } from "@/components/Markdown";
 
 type EditorTag = { id: string; name: string; slug: string };
@@ -29,12 +35,16 @@ type Mode = "split" | "write" | "preview";
 /** 全屏：off=普通；native=浏览器原生全屏；immersive=站内铺满（原生不可用时的回退） */
 type FullscreenMode = "off" | "native" | "immersive";
 
+/** 导入 Markdown 的大小上限：纯文本，1MB 远超一篇长文 */
+const MAX_MD_SIZE = 1024 * 1024;
+
 export function PostEditor({ post }: { post?: EditorPost }) {
   const router = useRouter();
   const isEdit = Boolean(post);
   const rootRef = useRef<HTMLFormElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const coverFileRef = useRef<HTMLInputElement | null>(null);
+  const mdFileRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState(post?.title ?? "");
   const [slug, setSlug] = useState(post?.slug ?? "");
@@ -52,6 +62,8 @@ export function PostEditor({ post }: { post?: EditorPost }) {
   const [coverBusy, setCoverBusy] = useState(false);
   const [mode, setMode] = useState<Mode>("split");
   const [fsMode, setFsMode] = useState<FullscreenMode>("off");
+  // 已解析待确认的导入（编辑器里有内容时先问，不直接覆盖）
+  const [pendingImport, setPendingImport] = useState<ParsedMarkdown | null>(null);
 
   // 窄屏默认只显示编辑区，避免两栏挤在一起
   useEffect(() => {
@@ -208,6 +220,68 @@ export function PostEditor({ post }: { post?: EditorPost }) {
     }
   }
 
+  /* ---------- 导入 Markdown 文件 ---------- */
+
+  /** 把解析结果落到编辑器（替换或追加）；读取与解析都已在调用前完成 */
+  function applyImport(parsed: ParsedMarkdown, strategy: ImportStrategy) {
+    const next = mergeImport(
+      { title, slug, excerpt, content, tags },
+      parsed,
+      strategy,
+      { isEdit }
+    );
+    setTitle(next.title);
+    setSlug(next.slug);
+    setExcerpt(next.excerpt);
+    setContent(next.content);
+    setTags(next.tags);
+    setError("");
+    setPendingImport(null);
+    const caret = strategy === "append" ? next.content.length : 0;
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(caret, caret);
+    });
+  }
+
+  async function onMarkdownFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+
+    if (!/\.(md|markdown|txt)$/i.test(file.name)) {
+      setError("只支持 .md / .markdown / .txt 文件");
+      return;
+    }
+    if (file.size > MAX_MD_SIZE) {
+      setError("文件超过 1MB，请拆分后再导入");
+      return;
+    }
+
+    // 读取 + 解析都发生在 setState 之前：任何一步失败都只报错，编辑器保持原样
+    let parsed: ParsedMarkdown | null = null;
+    try {
+      parsed = parseMarkdownDocument(await file.text());
+    } catch {
+      setError("读取文件失败，请重新选择");
+      return;
+    }
+    if (!parsed) {
+      setError("这个文件里没有可导入的内容");
+      return;
+    }
+
+    const hasContent = [title, content, excerpt, tags].some((v) => v.trim() !== "");
+    if (hasContent) {
+      setPendingImport(parsed);
+      return;
+    }
+    applyImport(parsed, "replace");
+  }
+
   async function handleAi() {
     if (!title.trim() || !content.trim()) {
       setAiMsg("请先填写标题和正文");
@@ -316,6 +390,45 @@ export function PostEditor({ post }: { post?: EditorPost }) {
 
       {error && <p className="notice error">{error}</p>}
       {aiMsg && <p className="notice info">{aiMsg}</p>}
+
+      {pendingImport && (
+        <div
+          className="editor-import-bar"
+          role="alertdialog"
+          aria-label="导入方式"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setPendingImport(null);
+          }}
+        >
+          <p>
+            编辑器里已经有内容。用这份文件替换正文，还是追加到正文末尾？
+          </p>
+          <div className="editor-import-actions">
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => applyImport(pendingImport, "replace")}
+            >
+              替换
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm ghost"
+              onClick={() => applyImport(pendingImport, "append")}
+            >
+              追加到末尾
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm ghost"
+              autoFocus
+              onClick={() => setPendingImport(null)}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="editor-meta">
         <div className="field">
@@ -428,6 +541,22 @@ export function PostEditor({ post }: { post?: EditorPost }) {
         </div>
 
         <div className="editor-toolbar-right">
+          <button
+            type="button"
+            className="btn btn-sm ghost"
+            onClick={() => mdFileRef.current?.click()}
+            aria-label="导入 Markdown 文件"
+            title="导入 .md / .markdown / .txt（≤1MB）"
+          >
+            导入 md
+          </button>
+          <input
+            ref={mdFileRef}
+            type="file"
+            accept=".md,.markdown,.txt,text/markdown,text/plain"
+            hidden
+            onChange={onMarkdownFile}
+          />
           <div className="editor-modes" role="tablist" aria-label="编辑器视图">
             {(
               [

@@ -34,7 +34,9 @@
 
 - 替代方案：复用 `/api/upload` 扩展出 `kind=markdown` 再回传文本。要动 OSS 配置与图片白名单，且"导入失败因为没配 OSS"是不可接受的耦合，弃用。
 
-### D2. 解析器是纯函数，放 `lib/markdown-import.ts`
+### D2. frontmatter 交给成熟包，`lib/markdown-import.ts` 只做归一化
+
+> 本节在实施后修订：初版打算手写 frontmatter 解析器，被要求改用现成插件，故改为依赖 `front-matter@4`。
 
 ```ts
 export type ParsedMarkdown = {
@@ -44,20 +46,26 @@ export type ParsedMarkdown = {
   excerpt?: string;
   tags?: string[];
 };
-export function parseMarkdownDocument(raw: string): ParsedMarkdown;
+export function parseMarkdownDocument(raw: string): ParsedMarkdown | null;
 ```
+
+分工：
+
+- **`front-matter` 负责**：识别 `---` 分隔的 YAML 块、把 YAML 解析成对象、把正文切出来。
+- **本文件负责**：去 BOM、CRLF → LF、把 `attributes` 归一到 `title/slug/excerpt/tags`（含 `description`/`summary`/`tag` 别名、数组与逗号字符串两种 tags 形态），以及包不提供的两条站点规则——**首个 `# 标题` 兜底**与**正文首尾空白裁剪**。
 
 解析顺序：
 
 1. **归一化**：去掉开头 BOM（`\uFEFF`）、`\r\n` → `\n`。
-2. **frontmatter**：仅当第一个非空行是 `---`（允许行尾空格）时，查找下一行同为 `---` 或 `...` 的分隔；找不到闭合分隔就当作没有 frontmatter（整篇都是正文）。
-3. **键值解析**：只认 `key: value` 扁平结构；识别 `title`、`slug`、`excerpt`（别名 `description`、`summary`）、`tags`（别名 `tag`）。值去成对引号；`tags` 支持三种写法：`[a, b]`、`a, b`、以及 `- a` 块列表。其余键忽略。
+2. **frontmatter**：先用一个正则确认「第一个非空行是 `---` 且存在闭合分隔行」，才交给 `front-matter`；没有闭合分隔就整篇按正文处理（包本身对这种残缺输入的行为不稳定，这层判断留在我们手里）。
+3. **YAML 写坏**：`front-matter` 抛错时只丢元信息，正文用正则切出来的部分继续导入，不让"元信息语法错误"挡住整份文稿。
 4. **标题兜底**：没有 frontmatter 标题时，若第一个非空行匹配 `^#\s+(.+)$`，取为标题并从正文移除（连同其后的一个空行）。
 5. **正文**：去掉首尾多余空行，保留内部空行与缩进。
 6. **空结果**：正文为空且没有标题 → 返回 `null`，由调用方提示"没有可导入的内容"。
 
-- 替代方案：引入 `gray-matter` + `js-yaml`。为一个博客的导入按钮加两个依赖、还要处理它们的 ESM/CJS 形态，不划算；本需求覆盖的 frontmatter 是手写博客里最常见的扁平结构。
-- 替代方案：只在客户端正则抽 frontmatter。多行值、引号、数组三种写法混起来正则很容易出错，纯函数 + 逐行状态机更可控。
+- **为什么不是 `gray-matter`**：它更主流，但 `index.js` 第 3 行就 `require('fs')`（给 `readFileSync` 用），这个模块要被客户端组件引用，打包时会报 `Can't resolve 'fs'`。改它要么动 Next 的 resolve 配置，要么把导入挪到服务端，两条都与"纯客户端、零配置"的前提冲突。
+- 为什么不是 `remark-frontmatter` + `unified`：仓库里虽有 remark 渲染链，但抽取 frontmatter 只需一次字符串解析，跑完整 mdast 解析属于杀鸡用牛刀，还要多引 `unified`/`vfile-matter`/`yaml` 三个包。
+- 为什么不是纯正则抽取：多行值、引号、三种数组写法混在一起，正则极易出错；交给 YAML 解析器更稳。
 
 ### D3. 合并策略：内联确认条，不用浏览器对话框
 
