@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // 显式钉死 Turbopack 的工作区根：用户主目录（C:\Users\<user>）里也存在 lockfile，
+  // 否则根探测会飘，偶发 "Could not find the Next.js package (next/package.json)" 崩溃
+  turbopack: { root: path.resolve(__dirname) },
   // 注意：Docker 部署用完整 node_modules + `next start`（容器启动时还要跑
   // prisma migrate/seed），因此不要开 output: "standalone"——standalone
   // 产物必须用 node .next/standalone/server.js 启动，与 next start 冲突。
