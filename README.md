@@ -71,6 +71,28 @@ OSS_ACL="public-read"                # 单对象读权限；Bucket 私有读时�
 - 未配置 OSS 时接口返回 503 并提示缺失的变量，页面会直接显示该提示；仍可手工填写图片外链
 
 
+## 邮箱验证码（注册 / 补绑邮箱）
+
+注册必须填写**真实邮箱**并输入 6 位验证码；老账号（无邮箱）仍可用用户名密码登录，登录后可在个人资料页补绑。
+
+发信走个人邮箱的 SMTP，配置在 `.env`（**必须 465 或 587**，阿里云 ECS 默认封禁出网 25 端口）：
+
+```bash
+SMTP_HOST="smtp.qq.com"     # 163 用 smtp.163.com
+SMTP_PORT="465"
+SMTP_SECURE="true"          # 465 → true；587 → false（STARTTLS）
+SMTP_USER="你的邮箱@qq.com"
+SMTP_PASS="SMTP 授权码"      # 注意：不是登录密码，在邮箱设置里开启 SMTP 服务后生成
+SMTP_FROM="你的邮箱@qq.com"  # 留空则用 SMTP_USER
+```
+
+- 发码接口：`POST /api/auth/email-code`，入参 `{ email, purpose: "register" | "bind" }`
+- 验证码 6 位、**10 分钟**有效、一次性、最多试 5 次；库里只存 sha256 哈希
+- 限流：同邮箱 60 秒冷却 + 每小时 5 封；同 IP 每小时 10 封
+- 未配置 SMTP 时接口返回 503「邮件服务未配置」，不会留下无效的验证码记录
+- 换用其它服务商（如阿里云 DirectMail）只需改这几个变量，代码不用动（`lib/mail.ts` 是唯一出口）
+
+
 ## 自建服务器部署
 
 服务器需安装 Docker、Docker Compose、Nginx。

@@ -24,6 +24,20 @@ model User {
   updatedAt    DateTime @updatedAt
 }
 
+model EmailCode {
+  id        String   @id @default(cuid())
+  email     String // 统一小写存储
+  purpose   String // "register" | "bind"
+  codeHash  String // sha256(code + AUTH_SECRET + email + purpose)，不存明文
+  attempts  Int      @default(0)
+  ip        String? // 仅用于限流，不用于其它用途
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([email, purpose, createdAt])
+  @@index([ip, createdAt])
+}
+
 model Post {
   id          String    @id @default(cuid())
   title       String

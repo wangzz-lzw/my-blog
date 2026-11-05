@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useFeedback } from "@/components/feedback/FeedbackProvider";
+import { EmailCodeField } from "@/components/auth/EmailCodeField";
 
 /**
  * 注册表单体：字段、校验、`POST /api/register` 与随后的自动登录。
- * 成功去向交给 onSuccess。
+ * 邮箱必填且必须先过验证码；成功去向交给 onSuccess。
  */
 export function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,12 +29,20 @@ export function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
 
+    if (!email.trim() || !code.trim()) {
+      void notify({
+        title: "还差一步",
+        description: "请填写邮箱并输入收到的验证码。",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, email, code, password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -83,16 +93,13 @@ export function RegisterFields({ onSuccess }: { onSuccess: () => void }) {
           required
         />
       </div>
-      <div className="field">
-        <label>邮箱（选填）</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          autoComplete="email"
-        />
-      </div>
+      <EmailCodeField
+        email={email}
+        onEmailChange={setEmail}
+        code={code}
+        onCodeChange={setCode}
+        purpose="register"
+      />
       <div className="field">
         <label>密码 *</label>
         <input

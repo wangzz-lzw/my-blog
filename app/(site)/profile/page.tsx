@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/date";
 import { ProfileForm } from "@/components/ProfileForm";
+import { BindEmailForm } from "@/components/auth/BindEmailForm";
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +27,18 @@ export default async function ProfilePage() {
   if (!user) redirect("/login");
 
   return (
-    <ProfileForm
-      user={{
-        username: user.username ?? "",
-        email: user.email,
-        name: user.name,
-        avatar: user.avatar,
-        role: user.role,
-        joinedAt: formatDate(user.createdAt),
-      }}
-    />
+    <>
+      <ProfileForm
+        user={{
+          username: user.username ?? "",
+          email: user.email,
+          name: user.name,
+          avatar: user.avatar,
+          role: user.role,
+          joinedAt: formatDate(user.createdAt),
+        }}
+      />
+      {!user.email && <BindEmailForm />}
+    </>
   );
 }

@@ -535,7 +535,8 @@ body {
   width: 40px;
   height: 40px;
   padding: 0;
-  border: 1px solid var(--rule-soft);
+  /* 比正文的发丝线重一档：这两个钮浮在文字上，线太淡就看不见了 */
+  border: 1px solid color-mix(in srgb, var(--fg) 18%, transparent);
   border-radius: 50%;
   background: var(--bg);
   color: var(--ink-2);
@@ -2523,11 +2524,6 @@ html.js-ready .welcome-actions {
 
 .site-footer .footer-sysline {
   display: none;
-}
-
-/* 文章页右下角有「沉浸阅读」浮钮，别让它压住页脚右侧的回到顶部 */
-body:has(.immersive-btn) .site-footer .container {
-  padding-right: 9.5rem;
 }
 
 /* 亮色下把背景网格压淡一档，避免变成方格纸 */

@@ -542,29 +542,7 @@ a:hover {
 }
 
 /* ============ 沉浸式阅读模式 ============ */
-
-.immersive-btn {
-  position: fixed;
-  right: 43%;
-  bottom: 6.3rem;
-  z-index: 80;
-  padding: 0.5rem 1rem;
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border: 1px solid var(--accent);
-  border-radius: 2px;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  transition: background 0.2s, box-shadow 0.2s;
-}
-
-.immersive-btn:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  box-shadow: 0 0 14px var(--glow);
-}
+/* 按钮本身在 components/FloatTools.tsx 里，与「回到顶部」共用 .float-btn 外壳 */
 
 body.immersive {
   background: var(--bg-deep);
@@ -1678,6 +1656,68 @@ main.container:has(.home-grid) {
   color: var(--muted);
   font-size: 0.8rem;
   font-family: var(--font-mono);
+}
+
+/* 邮箱验证码：输入框 + 获取按钮一行 */
+.code-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.code-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-code {
+  flex: 0 0 auto;
+  padding: 0 0.85rem;
+  border: 1px solid var(--rule-soft);
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.btn-code:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-code:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 个人资料页的补绑邮箱区块 */
+.bind-email {
+  max-width: 26rem;
+  margin-top: 2.2rem;
+  padding: 1.3rem 1.3rem 1.5rem;
+  border: 1px solid var(--rule-soft);
+}
+
+.bind-email h2 {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--fg-bright);
+}
+
+.bind-email-note {
+  margin: 0 0 1.1rem;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  color: var(--ink-2);
 }
 
 /* ============ 按钮（切角霓虹） ============ */
