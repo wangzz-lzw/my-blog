@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "首页" },
+  { href: "/blog", label: "文章" },
   { href: "/tags", label: "标签" },
 ];
 
@@ -16,7 +17,12 @@ export function SiteNav() {
     <>
       {LINKS.map((l) => {
         const active =
-          l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+          l.href === "/"
+            ? pathname === "/"
+            : // /blog 在文章详情页（/posts/...）也算当前区
+              pathname === l.href ||
+              pathname.startsWith(l.href + "/") ||
+              (l.href === "/blog" && pathname.startsWith("/posts"));
         return (
           <Link
             key={l.href}

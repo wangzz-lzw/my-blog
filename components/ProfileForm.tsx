@@ -346,8 +346,8 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
                 进入后台
               </Link>
             )}
-            <Link href="/" className="back-link">
-              ← 返回首页
+            <Link href="/blog" className="back-link">
+              ← 返回文章列表
             </Link>
           </div>
         </section>

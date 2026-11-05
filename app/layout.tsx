@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import Script from "next/script";
-import { HeaderAuth } from "@/components/HeaderAuth";
-import { SiteNav } from "@/components/SiteNav";
-import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
-import { SITE_NAME } from "@/lib/site";
 import "./globals.css";
 import "./redesign.css";
+import { SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
@@ -14,6 +10,10 @@ export const metadata: Metadata = {
   icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }] },
 };
 
+/**
+ * 根布局只负责文档外壳（html/body/主题初始化/样式）。
+ * 页头页脚在 `(site)` 分组布局里——根路径 `/` 是欢迎页，是门脸，不该挂站点头尾。
+ */
 export default function RootLayout({
   children,
 }: {
@@ -28,38 +28,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {"try{var t=localStorage.getItem('theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'daylight':'cyber'}document.documentElement.dataset.theme=t}catch(e){}"}
         </Script>
-        <FeedbackProvider>
-          <header id="top" className="site-header">
-          <div className="container">
-            <Link href="/" className="site-brand" aria-label={`${SITE_NAME} 首页`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/favicon.svg"
-                alt=""
-                width={22}
-                height={22}
-                className="brand-mark"
-              />
-              <span className="glitch" data-text={SITE_NAME}>
-                {SITE_NAME}
-              </span>
-            </Link>
-            <nav className="site-nav" aria-label="站点导航">
-              <SiteNav />
-              <HeaderAuth />
-            </nav>
-          </div>
-        </header>
-        <main className="site-main">{children}</main>
-        <footer className="site-footer">
-          <div className="container">
-            <span>
-              © {new Date().getFullYear()} {SITE_NAME}
-            </span>
-            <a href="#top">回到顶部 ↑</a>
-          </div>
-        </footer>
-        </FeedbackProvider>
+        {children}
       </body>
     </html>
   );

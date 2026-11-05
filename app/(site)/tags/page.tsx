@@ -32,8 +32,8 @@ export default async function TagsPage() {
       )}
 
       <p className="page-back">
-        <Link href="/" className="back-link">
-          ← 返回首页
+        <Link href="/blog" className="back-link">
+          ← 返回文章列表
         </Link>
       </p>
     </div>

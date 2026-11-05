@@ -1484,6 +1484,295 @@ body.editor-fs-lock {
   }
 }
 
+/* ---------- 欢迎页 /welcome：固定白赛博（不跟随主题） ---------- */
+
+/* 全局网格跟着主题走，这页自己画一层，先关掉它 */
+body:has(.page-welcome)::before {
+  display: none;
+}
+
+/* 变量挂在 body 上：这页整页白底，与主题无关 */
+body:has(.page-welcome) {
+  --w-paper: #fbfcfd;
+  --w-ink: #0b0e12;
+  --w-mute: #59636f;
+  --w-line: #dce3eb;
+  --w-signal: #0f62fe;
+  --w-signal-2: #d81653;
+  background: var(--w-paper);
+  color: var(--w-ink);
+}
+
+body:has(.page-welcome) :focus-visible {
+  outline-color: var(--w-signal);
+}
+
+.page-welcome {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: clamp(3rem, 11vh, 7rem);
+  padding-bottom: clamp(3rem, 11vh, 7rem);
+}
+
+/* 这页自己的细网格：不用任何主题色 */
+.page-welcome::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--w-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--w-line) 1px, transparent 1px);
+  background-size: 96px 96px;
+  opacity: 0.55;
+}
+
+.welcome-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 34rem;
+}
+
+.welcome-mark {
+  display: block;
+  width: clamp(64px, 9vw, 104px);
+  height: auto;
+  margin-bottom: 1.6rem;
+}
+
+.welcome-wordmark {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0.18em;
+  color: var(--w-ink);
+}
+
+.welcome-letter {
+  display: inline-block;
+}
+
+.welcome-lead {
+  margin: 1.7rem 0 0;
+  max-width: 22em;
+  font-family: var(--display);
+  font-size: clamp(1.5rem, 2.6vw, 2.05rem);
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: -0.008em;
+  color: var(--w-ink);
+}
+
+.welcome-rule {
+  width: 6rem;
+  height: 1px;
+  margin: 2rem 0 1.4rem;
+  background: var(--w-line);
+}
+
+.welcome-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--w-mute);
+}
+
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem 1.6rem;
+  margin-top: 2.6rem;
+}
+
+.welcome-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.62rem 1.25rem;
+  border: 1px solid var(--w-signal);
+  border-radius: 2px;
+  background: var(--w-signal);
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition: background 0.18s, color 0.18s;
+}
+
+.welcome-cta:hover {
+  background: transparent;
+  color: var(--w-signal);
+}
+
+.welcome-secondary {
+  padding-bottom: 2px;
+  color: var(--w-mute);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-decoration: none;
+  background-image: linear-gradient(var(--w-signal-2), var(--w-signal-2));
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  transition: background-size 0.22s ease, color 0.18s;
+}
+
+.welcome-secondary:hover {
+  color: var(--w-ink);
+  background-size: 100% 1px;
+}
+
+/* 一次入场：网格 → caret 描边 → 光标块 → 字标逐字 → 其余就位 */
+@media (prefers-reduced-motion: no-preference) {
+  .page-welcome::before {
+    animation: w-grid-in 700ms ease-out both;
+  }
+
+  .welcome-mark .w-mark-caret {
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    animation: w-draw 600ms ease-out 120ms both;
+  }
+
+  .welcome-mark .w-mark-cursor {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation:
+      w-cursor 180ms ease-out 620ms both,
+      w-blink 1.2s steps(1, end) 900ms infinite;
+  }
+
+  .welcome-letter {
+    opacity: 0;
+    animation: w-rise 420ms ease-out both;
+  }
+
+  .welcome-lead,
+  .welcome-rule,
+  .welcome-state,
+  .welcome-actions {
+    opacity: 0;
+    animation: w-rise 480ms ease-out both;
+  }
+
+  .welcome-lead {
+    animation-delay: 880ms;
+  }
+
+  .welcome-rule {
+    animation-delay: 960ms;
+  }
+
+  .welcome-state {
+    animation-delay: 1040ms;
+  }
+
+  .welcome-actions {
+    animation-delay: 1120ms;
+  }
+}
+
+/* 减少动效：直接给最终态，别停在动画的初始帧 */
+@media (prefers-reduced-motion: reduce) {
+  .page-welcome::before {
+    opacity: 0.55;
+  }
+
+  .welcome-mark .w-mark-caret {
+    stroke-dashoffset: 0;
+  }
+
+  .welcome-mark .w-mark-cursor {
+    transform: none;
+  }
+
+  .welcome-letter,
+  .welcome-lead,
+  .welcome-rule,
+  .welcome-state,
+  .welcome-actions {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes w-grid-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+@keyframes w-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes w-cursor {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes w-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes w-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-welcome {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+
+  .welcome-wordmark {
+    font-size: 1.9rem;
+    letter-spacing: 0.14em;
+  }
+
+  .welcome-lead {
+    font-size: 1.35rem;
+  }
+}
+
 /* ---------- 页脚 ---------- */
 
 .site-footer {

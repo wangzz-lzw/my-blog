@@ -87,8 +87,8 @@ export default async function PostPage({
               {post.views || 0} 次浏览
             </span>
           </div>
-          <Link href="/" className="back-link">
-            ← 返回首页
+          <Link href="/blog" className="back-link">
+            ← 返回文章列表
           </Link>
           <h1>{post.title}</h1>
           {post.excerpt && <p className="post-dek">{post.excerpt}</p>}

@@ -85,8 +85,8 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
           </Link>
         </div>
         <div className="login-foot">
-          <Link href="/" className="back-link">
-            ← 返回首页
+          <Link href="/blog" className="back-link">
+            ← 返回文章列表
           </Link>
         </div>
       </div>
