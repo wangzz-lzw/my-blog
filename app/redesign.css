@@ -990,6 +990,10 @@ body:has(.sheet--scroll) .list-host {
   line-height: 1.7;
 }
 
+.post-when .extra > span {
+  display: block;
+}
+
 .post-header .post-meta {
   grid-column: 2;
   margin-top: 1rem;
@@ -2601,6 +2605,13 @@ html.js-ready .welcome-actions {
   opacity: 0;
 }
 
+/* 触屏没有指针跟随这回事，别让它留下几个悬在边角的点 */
+@media (hover: none) {
+  .cursor-trail {
+    display: none;
+  }
+}
+
 /* 尾巴由一串小点组成：越靠后越小、越淡，形成拖尾 */
 .cursor-dot {
   position: absolute;
@@ -2815,10 +2826,22 @@ html.js-ready .welcome-actions {
     padding-right: 1.1rem;
   }
 
+  /* 单列：日期折到标题上方，封面自成一行。
+     这里必须把 grid-template-areas 一起重写：`.entry.has-cover` 那条（≤900px）
+     的特异性比 `.entry` 高，只改列数盖不住它，日期栏会被压成 0 宽、和标题叠在一起。 */
   .entry,
+  .entry.has-cover,
   .post-header {
     grid-template-columns: minmax(0, 1fr);
     column-gap: 0;
+  }
+
+  .entry {
+    grid-template-areas: "when" "body";
+  }
+
+  .entry.has-cover {
+    grid-template-areas: "when" "body" "cover";
   }
 
   /* 日期栏在窄屏折成标题上方的一行小字 */
@@ -2848,6 +2871,7 @@ html.js-ready .welcome-actions {
     grid-column: 1;
     grid-row: auto;
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     align-items: baseline;
     padding: 0 0 0.5rem;
@@ -2864,6 +2888,21 @@ html.js-ready .welcome-actions {
     display: inline;
     margin: 0;
     font-size: 0.66rem;
+  }
+
+  /* 窄屏把「X 分钟 / Y 次浏览」并成一行，用间隔点分而不是换行 */
+  .post-when .extra {
+    display: inline-flex;
+    gap: 0.4rem;
+  }
+
+  .post-when .extra > span {
+    display: inline;
+  }
+
+  .post-when .extra > span + span::before {
+    content: "· ";
+    color: var(--ink-3);
   }
 
   .post-header .back-link,

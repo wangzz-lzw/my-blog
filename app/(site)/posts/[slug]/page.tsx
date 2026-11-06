@@ -81,9 +81,8 @@ export default async function PostPage({
               {String((post.publishedAt ?? post.createdAt).getMonth() + 1).padStart(2, "0")}
             </span>
             <span className="extra">
-              {readTime(post.content)} 分钟
-              <br />
-              {post.views || 0} 次浏览
+              <span>{readTime(post.content)} 分钟</span>
+              <span>{post.views || 0} 次浏览</span>
             </span>
           </div>
           <Link href="/blog" className="back-link">

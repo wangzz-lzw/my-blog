@@ -616,8 +616,7 @@ body.immersive .post-tags {
 
 .site-footer {
   margin-top: 4rem;
-  position: sticky;
-  bottom: 0;
+  /* 不用 sticky：整页滚动已经搬到根容器，sticky bottom 会让页脚常驻并压住正文 */
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg) 85%, transparent);
 }
