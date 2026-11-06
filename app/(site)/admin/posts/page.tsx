@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/date";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function AdminPostsPage() {
         </Link>
       </header>
 
-      <div className="table-wrap">
+      <ScrollArea axis="x" className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
@@ -61,7 +62,7 @@ export default async function AdminPostsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

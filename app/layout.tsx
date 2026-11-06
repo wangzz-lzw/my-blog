@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
+import { RootScroll } from "@/components/ui/RootScroll";
 import "./globals.css";
 import "./redesign.css";
 import { SITE_NAME } from "@/lib/site";
@@ -32,8 +33,11 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {"try{var d=document.documentElement,t=localStorage.getItem('theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'daylight':'cyber'}d.dataset.theme=t;if(location.pathname==='/'){d.classList.add('js-ready');setTimeout(function(){if(!window.__welcomeMotion){d.classList.remove('js-ready')}},2500)}}catch(e){}"}
         </Script>
-        {/* 全站提示弹窗的宿主：放在根布局，欢迎页（不在 (site) 分组里）也能用 */}
-        <FeedbackProvider>{children}</FeedbackProvider>
+        {/* 整页滚动搬进这一层：document 自己不再滚，
+            这样全站（含页面级）才能用同一套自绘滚动条 */}
+        <FeedbackProvider>
+          <RootScroll>{children}</RootScroll>
+        </FeedbackProvider>
       </body>
     </html>
   );

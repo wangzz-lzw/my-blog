@@ -2,6 +2,7 @@
 
 import React, { useState, type ReactNode } from "react";
 import { useFeedback } from "@/components/feedback/FeedbackProvider";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 
 /**
  * 终端风代码卡：顶栏 ~/语言标签 + 复制按钮。
@@ -65,7 +66,10 @@ export function CodeBlock({
           {copied ? "已复制 ✓" : "复制"}
         </button>
       </div>
-      <pre>{children}</pre>
+      {/* 代码块横向滚动也走全站同一套自绘条 */}
+      <ScrollArea axis="x" className="code-scroll" contentClassName="code-scroll-content">
+        <pre>{children}</pre>
+      </ScrollArea>
     </div>
   );
 }

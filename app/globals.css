@@ -2741,6 +2741,226 @@ body:has(.admin-shell) .admin-shell {
   border-radius: 2px;
 }
 
+/* ============ 滚动条：自绘的读数尺 ============ */
+
+/* 整页滚动搬进根容器：body 不再滚（document 的滚动条浏览器画，改不了外观） */
+body {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 内容层沿用原来的「页头 / 主区 / 页脚」纵向布局 */
+.app-scroll-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* 列表页要求「主区正好一屏、列表自己滚」，所以内容层必须拿到确定高度，
+   否则 flex:1 无处可压，整页会多出一条滚动条 */
+body:has(.sheet--scroll) .app-scroll-content {
+  height: 100%;
+  min-height: 0;
+}
+
+/* 打印：把滚动容器放开，否则全文会被裁成一屏 */
+@media print {
+  body,
+  body:has(.sheet--scroll) {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-scroll,
+  .app-scroll-content,
+  .app-scroll [data-overlayscrollbars-viewport],
+  .sb,
+  .sb [data-overlayscrollbars-viewport] {
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+/* 尺寸全部走变量：细轨 + 更细的滑块，滑块是这块唯一的亮色 */
+:root {
+  --sb-slot: 10px;      /* 内容右侧留给滚动条的槽 */
+  --sb-w: 8px;          /* 轨道宽 */
+  --sb-w-active: 10px;  /* 悬停/拖拽时轨道变宽 */
+  --sb-thumb: 2px;      /* 滑块常态宽 */
+  --sb-thumb-active: 4px;
+  --sb-tick: 24px;      /* 刻度间距 */
+}
+
+/* host：只负责尺寸与定位；真正滚动的是里层的 .sb-viewport
+   （尺寸与 overflow 由库的 [data-overlayscrollbars-*] 规则接管） */
+.sb {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 没有 JS（或库还没接管）时退回原生滚动：内容照样能滚，不会被裁掉 */
+.sb:not([data-overlayscrollbars]) {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sb-viewport {
+  overscroll-behavior: contain;
+}
+
+/* 用不上的方向（比如只纵滚的容器里那根横条）整个藏掉，
+   否则我们的刻度底纹会在底部亮出一条没意义的线 */
+.sb > .os-scrollbar-unusable {
+  display: none;
+}
+
+/* 代码块：横向滚动，高度跟着内容走 */
+.code-scroll {
+  height: auto;
+}
+
+.code-scroll .sb-content {
+  width: 100%;
+}
+
+/* 横向滚动条（代码块）：贴底，右侧让出竖向槽 */
+.sb > .os-scrollbar-horizontal {
+  left: 0;
+  right: var(--sb-slot);
+  bottom: 0;
+  height: var(--sb-w);
+}
+
+.sb > .os-scrollbar-horizontal .os-scrollbar-track {
+  background:
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--fg) 16%, transparent) 0 1px,
+      transparent 1px var(--sb-tick)
+    );
+  border-radius: 0;
+}
+
+.sb > .os-scrollbar-horizontal .os-scrollbar-handle {
+  height: var(--sb-thumb);
+  margin: auto 0;
+  background: var(--accent);
+  border-radius: 0;
+  min-width: 24px;
+  opacity: 0.85;
+  transition: height 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sb > .os-scrollbar-horizontal:hover .os-scrollbar-handle,
+.sb > .os-scrollbar-horizontal.os-scrollbar-interaction .os-scrollbar-handle {
+  height: var(--sb-thumb-active);
+  opacity: 1;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+/* 竖向滚动条：贴右缘，轨道几乎不可见 + 刻度，滑块只有 2px */
+.sb > .os-scrollbar-vertical {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--sb-w);
+  transition: width 0.16s ease;
+}
+
+.sb > .os-scrollbar-vertical:hover,
+.sb > .os-scrollbar-vertical.os-scrollbar-interaction {
+  width: var(--sb-w-active);
+}
+
+.sb > .os-scrollbar-vertical .os-scrollbar-track {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--fg) 16%, transparent) 0 1px,
+      transparent 1px var(--sb-tick)
+    );
+  border-radius: 0;
+}
+
+.sb > .os-scrollbar-vertical .os-scrollbar-handle {
+  width: var(--sb-thumb);
+  margin: 0 auto;
+  background: var(--accent);
+  border-radius: 0;
+  min-height: 24px;
+  opacity: 0.85;
+  transition: width 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sb > .os-scrollbar-vertical:hover .os-scrollbar-handle,
+.sb > .os-scrollbar-vertical.os-scrollbar-interaction .os-scrollbar-handle {
+  width: var(--sb-thumb-active);
+  opacity: 1;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+/* ---- 滚动条动效：滚动/拖拽时醒过来，停下 700ms 落回安静态 ---- */
+
+.sb > .os-scrollbar-vertical .os-scrollbar-handle {
+  transition:
+    width 0.18s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.18s ease,
+    box-shadow 0.24s ease;
+}
+
+.sb[data-sb-active="1"] > .os-scrollbar-vertical .os-scrollbar-handle {
+  width: var(--sb-thumb-active);
+  opacity: 1;
+  box-shadow: 0 0 12px var(--glow);
+}
+
+/* 真正拖住滑块时给最强反馈：更宽 + 一圈更亮的光 */
+.sb[data-sb-drag="1"] > .os-scrollbar-vertical .os-scrollbar-handle {
+  width: calc(var(--sb-thumb-active) + 1px);
+  box-shadow:
+    0 0 18px var(--glow),
+    0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* 刻度平时几乎看不见，滚动时亮成一把尺 */
+.sb[data-sb-active="1"] > .os-scrollbar-vertical .os-scrollbar-track {
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--accent) 32%, transparent) 0 1px,
+    transparent 1px var(--sb-tick)
+  );
+}
+
+.sb > .os-scrollbar-vertical .os-scrollbar-track {
+  transition: background 0.24s ease;
+}
+
+/* 减弱动效：只保留位置变化，不做宽度/发光过渡 */
+@media (prefers-reduced-motion: reduce) {
+  .sb > .os-scrollbar-vertical .os-scrollbar-handle,
+  .sb > .os-scrollbar-horizontal .os-scrollbar-handle {
+    transition: none;
+  }
+
+  .sb[data-sb-active="1"] > .os-scrollbar-vertical .os-scrollbar-handle,
+  .sb[data-sb-drag="1"] > .os-scrollbar-vertical .os-scrollbar-handle {
+    width: var(--sb-thumb);
+    box-shadow: none;
+  }
+}
+
 /* ============ 标签管理 ============ */
 
 /* 新建标签：一行里放名称 + 地址段 + 按钮，窄屏自动折行 */

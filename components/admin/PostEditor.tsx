@@ -19,6 +19,7 @@ import {
 } from "@/lib/markdown-import";
 import { Markdown } from "@/components/Markdown";
 import { useFeedback } from "@/components/feedback/FeedbackProvider";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 
 type EditorTag = { id: string; name: string; slug: string };
 
@@ -826,7 +827,9 @@ export function PostEditor({
             <span>实时预览</span>
             <span className="preview-hint">与文章页同一管线</span>
           </div>
-          <div className="preview-body">{preview}</div>
+          <ScrollArea axis="y" className="preview-scroll" contentClassName="preview-body">
+            {preview}
+          </ScrollArea>
         </section>
       </div>
     </form>

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { currentScrollPane, onPaneScroll, paneScrollMetrics } from "@/lib/scroll-pane";
 
 /**
  * 阅读进度条：固定在页面顶部的 2px 霓虹渐变条，随滚动增长。
- * 无其他副作用，沉浸模式下保留（作为进度指示）。
+ * 滚动的可能是根容器（整页滚动已从 document 搬到根容器），
+ * 所以位置一律问 currentScrollPane()，不写死 documentElement。
  */
 export function ReadingProgress() {
   const barRef = useRef<HTMLDivElement>(null);
@@ -13,18 +15,18 @@ export function ReadingProgress() {
     const el = barRef.current;
     if (!el) return;
 
+    const pane = currentScrollPane();
     const update = () => {
-      const doc = document.documentElement;
-      const max = doc.scrollHeight - doc.clientHeight;
-      el.style.width =
-        max > 0 ? `${Math.min(100, (doc.scrollTop / max) * 100)}%` : "0%";
+      const { top, view, total } = paneScrollMetrics(pane);
+      const max = total - view;
+      el.style.width = max > 0 ? `${Math.min(100, (top / max) * 100)}%` : "0%";
     };
 
     update();
-    window.addEventListener("scroll", update, { passive: true });
+    const off = onPaneScroll(pane, update);
     window.addEventListener("resize", update);
     return () => {
-      window.removeEventListener("scroll", update);
+      off();
       window.removeEventListener("resize", update);
     };
   }, []);

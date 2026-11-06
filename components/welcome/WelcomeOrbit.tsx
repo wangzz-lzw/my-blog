@@ -98,6 +98,8 @@ export function WelcomeOrbit({ posts }: { posts: OrbitPost[] }) {
     let alive = true;
     let radius = 0;
     let step = 45;
+    /** 指针倾斜只在有悬停能力的宽屏上启用 */
+    let tiltEnabled = false;
     const state = { rot: 0 };
     let tween: gsap.core.Tween | null = null;
     let driver: Driver = "auto";
@@ -114,7 +116,10 @@ export function WelcomeOrbit({ posts }: { posts: OrbitPost[] }) {
       const n = items.length || 1;
       step = 360 / n;
       const minByChord = cardW / (2 * Math.sin(Math.PI / n));
-      radius = Math.max(cardW * 1.1, minByChord * 1.05);
+      // 半径不能大过舞台：窄屏上按弦长算出来的圆会伸出容器，
+      // 把半径压到「舞台宽 / 2 − 半张卡 − 一点余量」之内
+      const byStage = Math.max(64, stage.clientWidth / 2 - cardW / 2 - 10);
+      radius = Math.min(Math.max(cardW * 1.1, minByChord * 1.05), byStage);
       items.forEach((el, i) => {
         const angle = (i / n) * 360;
         el.style.transform = `translate(-50%, -50%) rotateY(${angle}deg) translateZ(${radius}px)`;
@@ -182,7 +187,7 @@ export function WelcomeOrbit({ posts }: { posts: OrbitPost[] }) {
     });
 
     const updateTilt = (e: PointerEvent) => {
-      if (reduced.matches) return;
+      if (!tiltEnabled || reduced.matches) return;
       const r = stage.getBoundingClientRect();
       const nx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
       const ny = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
@@ -336,11 +341,16 @@ export function WelcomeOrbit({ posts }: { posts: OrbitPost[] }) {
 
     const mm = gsap.matchMedia();
 
-    // 只在够宽的视口启用 3D 环；窄屏保留网格
-    mm.add("(min-width: 981px)", () => {
+    /**
+     * 启用 3D 环。宽屏与窄屏只在参数上不同：
+     * 窄屏卡片更小（CSS 里 --card-w 收小）、透视近一点、不做指针倾斜，
+     * 但环本身照转——不再是"窄屏退回网格"。
+     */
+    const enableOrbit = (perspective: number, tilt: boolean) => () => {
+      tiltEnabled = tilt;
       stage.style.position = "absolute";
       stage.style.inset = "0";
-      stage.style.perspective = `${PERSPECTIVE}px`;
+      stage.style.perspective = `${perspective}px`;
       stage.style.perspectiveOrigin = "50% 50%";
       stage.classList.add("is-orbit");
       ring.classList.add("is-orbiting");
@@ -352,6 +362,7 @@ export function WelcomeOrbit({ posts }: { posts: OrbitPost[] }) {
       if (!reduced.matches) startAuto();
 
       return () => {
+        tiltEnabled = false;
         ro.disconnect();
         stage.style.removeProperty("perspective");
         stage.style.removeProperty("perspective-origin");
@@ -364,7 +375,12 @@ export function WelcomeOrbit({ posts }: { posts: OrbitPost[] }) {
           el.style.transform = "";
         });
       };
-    });
+    };
+
+    // 宽屏：完整形态（指针倾斜 + 1100 透视）
+    mm.add("(min-width: 981px)", enableOrbit(PERSPECTIVE, true));
+    // 窄屏 / 移动端：紧凑形态（更近的透视、不做倾斜，卡片尺寸交给 CSS）
+    mm.add("(max-width: 980px)", enableOrbit(900, false));
 
     // 入场：在页面主序列之后出现
     if (!reduced.matches) {

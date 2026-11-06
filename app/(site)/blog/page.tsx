@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { readTime } from "@/lib/read-time";
 import { toSiteImageUrl } from "@/lib/image-url";
 import type { PostWithTags } from "@/lib/types";
-import { GsapReveal } from "@/components/GsapReveal";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 import { ListScrollPane } from "@/components/blog/ListScrollPane";
 
 // 列表必须读运行时数据：镜像构建阶段没有真实数据库（Dockerfile 用的是临时空库），
@@ -86,16 +86,15 @@ export default async function HomePage() {
   const [featured, ...rest] = posts as PostWithTags[];
 
   return (
-    <GsapReveal className="list-host">
+    <div className="list-host">
       <div className="sheet sheet--scroll">
         <ListScrollPane>
-          <p className="ledger-intro" data-reveal>
+          <p className="ledger-intro">
             开发笔记与生活随想。按时间倒排，越新的越靠上。
           </p>
           {featured ? (
             <article
               className={`entry entry--lead${featured.cover ? " has-cover" : ""}`}
-              data-reveal
             >
               <div className="entry-when">
                 <span className="entry-day">{stamp(featured.publishedAt).day}</span>
@@ -175,7 +174,7 @@ export default async function HomePage() {
           )}
         </ListScrollPane>
 
-        <aside className="rail" aria-label="侧栏" data-reveal>
+        <ScrollArea className="rail" role="complementary" ariaLabel="侧栏">
           <section className="rail-block">
             <h3>标签</h3>
             {tagCloud.length === 0 ? (
@@ -242,8 +241,8 @@ export default async function HomePage() {
               <b>{posts.length}</b> 篇文章 / <b>{tagCloud.length}</b> 个在用标签
             </p>
           </section>
-        </aside>
+        </ScrollArea>
       </div>
-    </GsapReveal>
+    </div>
   );
 }

@@ -309,23 +309,99 @@ body:has(.sheet--scroll) .list-host {
   color-scheme: light;
 }
 
+/* 列表列：现在是一个 ScrollArea 的 host（里层才是真正滚动的那层），
+   走线也挂在它身上，靠 --p 每帧推进 */
 .sheet--scroll .ledger {
+  position: relative;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* 始终给滚动条留槽：列表长短变化时不带得条目宽度一跳一跳 */
-  scrollbar-gutter: stable;
 }
 
-/* 侧栏不跟列表滚；它自己高过视口时才单独滚。
-   右内边距给滚动条让位：不然计数会被压在滚动条底下。 */
+/* 条目仍然是纵向流：内容层接住原来的 flex column */
+.sheet--scroll .ledger > .sb-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 左缘走线：随滚动进度生长的一条细线（--p 由 ListScrollPane 写入） */
+.sheet--scroll .ledger::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    color-mix(in srgb, var(--accent) 12%, transparent)
+  );
+  transform: scaleY(var(--p, 0));
+  transform-origin: top;
+  pointer-events: none;
+}
+
+/* 内容不足一屏时不显示走线与读数 */
+.sheet--scroll .ledger[data-scrollable="0"]::before {
+  display: none;
+}
+
+/* 减弱动效：不推进走线，只留阅读线上的静态标记 */
+.sheet--scroll .ledger[data-reduced="1"]::before {
+  display: none;
+}
+
+/* 已读的条目降权，当前条目的日期点亮 —— 这两条就是"读到哪"的全部反馈 */
+.entry {
+  transition: opacity 0.12s linear;
+}
+
+.entry[data-read="past"] {
+  opacity: 0.6;
+}
+
+.entry[data-read="current"] .entry-day {
+  color: var(--accent);
+}
+
+/* 读数：静止时不出现，滚动/悬停时才浮出来 */
+.sb-readout {
+  position: absolute;
+  top: 0.9rem;
+  right: calc(var(--sb-slot) + 0.35rem);
+  z-index: 4;
+  padding: 0.15rem 0.4rem;
+  color: var(--fg-bright);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+
+.sheet--scroll .ledger[data-reading="1"] .sb-readout {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sheet--scroll .ledger[data-scrollable="0"] .sb-readout {
+  display: none;
+}
+
+/* 侧栏不跟列表滚；它自己高过视口时才单独滚 */
 .sheet--scroll .rail {
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding-right: 0.5rem;
+  height: 100%;
+}
+
+.sheet--scroll .rail > .sb-content {
+  padding: 0.4rem 0.5rem 0 0;
 }
 
 /* 键盘焦点：描边往内收，否则会被容器的 overflow 裁掉 */
@@ -1567,6 +1643,16 @@ textarea::placeholder {
   overflow: auto;
 }
 
+/* 编辑器预览也换成全站那套滚动条（预览区自己滚，不带动整页） */
+.preview-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.preview-scroll > .sb-content {
+  padding: 0.9rem 1rem;
+}
+
 /* 站内回退：自己定位，并锁住页面滚动 */
 .editor.is-immersive {
   position: fixed;
@@ -2460,6 +2546,37 @@ html.js-ready .welcome-actions {
   .welcome-inner {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 2.4rem;
+  }
+
+  /* 移动端也让环转起来：卡片收小一号，环的半径由脚本按舞台宽收口，
+     不做指针倾斜（触屏没有悬停）。舞台压矮，别把首屏顶下去。 */
+  .welcome-stage {
+    min-height: 19rem;
+  }
+
+  .welcome-orbit-list.is-orbiting .orbit-item {
+    --card-w: 5.6rem;
+    --card-h: 6.4rem;
+  }
+
+  .welcome-orbit-list.is-orbiting .orbit-text-cover {
+    gap: 0.2rem;
+    padding: 0.42rem 0.45rem 0.36rem;
+  }
+
+  .welcome-orbit-list.is-orbiting .orbit-mark {
+    width: 1rem;
+  }
+
+  .welcome-orbit-list.is-orbiting .orbit-title {
+    font-size: 0.66rem;
+    line-height: 1.4;
+    -webkit-line-clamp: 2;
+  }
+
+  .welcome-orbit-list.is-orbiting .orbit-meta {
+    padding-top: 0.2rem;
+    font-size: 0.5rem;
   }
 
   .welcome-auth-slot {
