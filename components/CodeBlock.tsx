@@ -24,9 +24,12 @@ function extractText(node: ReactNode): string {
 export function CodeBlock({
   children,
   language,
+  sourceLine,
 }: {
   children?: ReactNode;
   language?: string;
+  /** 该代码块在 Markdown 源码里的起始行号（分屏联动定位用） */
+  sourceLine?: string;
 }) {
   const [copied, setCopied] = useState(false);
   const { alert: notify } = useFeedback();
@@ -59,7 +62,7 @@ export function CodeBlock({
   };
 
   return (
-    <div className="code-card">
+    <div className="code-card" data-src={sourceLine}>
       <div className="code-header">
         <span className="code-lang">~/ {language || "text"}</span>
         <button className="copy-btn" type="button" onClick={copy}>

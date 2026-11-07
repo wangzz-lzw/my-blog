@@ -100,6 +100,7 @@ pnpm dev                   # http://localhost:3000
 | `pnpm prisma:generate` | 重新生成 Prisma Client |
 | `pnpm prisma:seed` | `tsx --env-file=.env prisma/seed.ts` |
 | `pnpm db:push` | 只推 schema 不建迁移（临时试验用，别用于正式改动） |
+| `npx tsx scripts/sync-test.ts` | 分屏联动算法的单元测试（41 个断言） |
 
 ### 2.4 环境变量
 
@@ -581,6 +582,9 @@ body { height: 100dvh; overflow: hidden }
 | `components/ui/RootScroll.tsx` | 根滚动层：hash 锚点补跳（立即 + 300ms）、前进后退位置恢复（`sessionStorage` 按路径存，rAF 轮询最多 30 次） |
 | `components/blog/ListScrollPane.tsx` | 列表：写 `--p` 给左缘走线、按 25% 阅读线切 `data-read`、`NN / MM` 读数、后退恢复位置 |
 | `components/blog/PostOutline.tsx` | 文章页大纲：扫描 `.prose h2/h3` 的 id、sticky 吸附、滚动高亮、点击跳转（落点校正 + 写 hash + 移焦点）；自身溢出时再套一层 `ScrollArea` |
+| `components/ui/PlainScrollbar.tsx` | 给**原生滚动**的元素（textarea）叠只读自绘轨道：`scrollbar-width: none` 藏原生条 + 按比例画滑块 + 拖拽反写 `scrollTop`；`version` prop 用于内容变化时重算 |
+| `components/admin/editor-scroll-sync.ts` | 分屏联动纯逻辑：`lineToTop` / `topToLine` / `findBlockIndex` / `findBlockByOffset` / `SyncController`（含回声消除） |
+| `components/admin/useEditorScrollSync.ts` | 把联动接到编辑器的 hook：找元素、量块位置、挂/解监听、按 `active`/`enabled` 门控 |
 | `lib/scroll-pane.ts` | `currentScrollPane()`：列表面板 → 根容器 → `window` 的解析顺序，每一层都解到 viewport |
 
 ### 10.4 使用约定
@@ -599,6 +603,9 @@ body { height: 100dvh; overflow: hidden }
   content 的父节点是 host。
 - 要读滚动位置：**永远用 `currentScrollPane()` / `paneScrollMetrics()`**，不要 `window.scrollY`，
   也不要直接查 `.app-scroll`（滚的是里面的 viewport）。
+- 例外：`<textarea>` 这类**元素自身滚动**的控件不走 `viewportOf()`（它既不是 OverlayScrollbars
+  viewport，也没有 `.sb-content`），直接读写它的 `scrollTop`。后台编辑区的联动就是这样做的；
+  原生滚动条由 `PlainScrollbar` 叠一层只读轨道替代，而不是把它塞进 `ScrollArea`。
 - 触屏（`hover: none`）上长滚区域保持系统滚动：`ScrollArea` 会直接跳过初始化，
   此时 `.sb:not([data-overlayscrollbars]) { overflow-y: auto }` 兜底；
   依赖库的增强（走线、读数）在触屏上不生效。
@@ -639,6 +646,28 @@ body { height: 100dvh; overflow: hidden }
   `excerpt|description|summary` / `tags|tag`；没有 title 时取第一行的 `# 标题`。
   编辑器已有内容时先弹确认，支持「替换」与「追加」两种策略。
 
+#### 分屏滚动联动（`editor-scroll-sync`）
+
+分屏时两侧默认联动，工具栏的「滚动联动」开关可以关掉。实现分三块：
+
+- **坐标依据是源码行号，不是滚动比例**。`Markdown.tsx` 里的 `rehypeSourceLine` 把每个
+  块级元素的 `position.start.line` 写成 `data-src`，于是「左侧第 120 行」和「右侧那个 `## 小节`」
+  有真正的对应关系。按比例联动在长文里必然漂移——一段 5 行源码可能渲染成 50px，也可能 400px。
+- **逻辑与接线分离**：`components/admin/editor-scroll-sync.ts` 是纯逻辑（`lineToTop` /
+  `topToLine` / `findBlockIndex` / `SyncController`），可用 `npx tsx scripts/sync-test.ts` 单独跑；
+  `useEditorScrollSync.ts` 只负责找元素、量位置、挂监听。
+- **回声消除靠确定性事实而不是计时**：程序化写完对侧 `scrollTop` 后，该侧下一帧的 `scroll` 事件
+  必然是自己造成的。所以写入时记录 `{side, target}`，受控侧回调里比对当前值是否已达目标来吞掉它；
+  120ms 窗口只兜底「目标等于当前位置、压根不触发 scroll」这一种漏事件的情形。
+
+⚠️ 两个实现细节容易踩：
+
+- `pre` 走的是自定义 `CodeBlock` 组件，**不显式透传 props 就会丢掉 `data-src`**，联动会跳过所有代码块。
+- 编辑区用了 `PlainScrollbar`（`components/ui/PlainScrollbar.tsx`）替代原生条，
+  `scrollbar-width: none` 只在组件挂载后打的 `data-synced` 上生效——不能复用 `html.js-ready`，
+  那个类只在首页才加（`app/layout.tsx` 里有 `location.pathname === '/'` 判断），
+  用它门控会得到「编辑器始终显示原生条」或「无 JS 时完全没有滚动条」的静默失败。
+
 ### 11.2 Markdown 渲染（`components/Markdown.tsx`）
 
 ```
@@ -647,7 +676,8 @@ react-markdown + remark-gfm + remark-breaks
   → rehype-autolink-headings（标题后 # 链接）
   → rehype-external-links（外链 target=_blank + rel=noopener）
   → rehype-highlight（服务端高亮）
-  → 自定义 pre → CodeBlock（语言标注 + 横向 ScrollArea + 复制）
+  → rehype-source-line（块级元素标 data-src = 源码起始行，供后台分屏联动）
+  → 自定义 pre → CodeBlock（语言标注 + 横向 ScrollArea + 复制；data-src 需显式透传）
 ```
 
 ⚠️ unified 的 `.use()` 只能接收「插件函数」或 `[函数, options]`。

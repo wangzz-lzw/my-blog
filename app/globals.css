@@ -3268,6 +3268,97 @@ body:has(.sheet--scroll) .app-scroll-content {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* 换成自绘条后藏掉原生条；data-synced 由组件挂载后才打，
+   所以无 JS 时仍然是浏览器原生滚动条，不会出现"既没原生条也没自绘条" */
+.editor-textarea[data-synced] {
+  scrollbar-width: none;
+}
+
+.editor-textarea[data-synced]::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 编辑区自绘轨道的宿主：只负责定位，不参与布局 */
+.editor-write {
+  position: relative;
+}
+
+/* 轨道只覆盖正文区，不能压到下方的字符数状态条上 */
+.editor-write-bar {
+  bottom: auto;
+  height: calc(100% - var(--editor-status-h, 30px));
+}
+
+/* 只读自绘轨道（PlainScrollbar）：与全站 --sb-* 同一套语言 */
+.psb {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--sb-w);
+  cursor: default;
+  touch-action: none;
+  transition: width 0.16s ease;
+  z-index: 2;
+}
+
+.psb[data-visible] {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* 用 opacity 而不是 display:none 来隐藏：display:none 会让 clientHeight 变成 0，
+   而测高正是判断"要不要显示"的依据，两者会互相锁死 */
+.psb:not([data-visible]) {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.psb {
+  transition: width 0.16s ease, opacity 0.16s ease;
+}
+
+.psb:hover {
+  width: var(--sb-w-active);
+}
+
+/* 轨道刻度底纹，和预览区那根对齐 */
+.psb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--fg) 16%, transparent) 0 1px,
+    transparent 1px var(--sb-tick)
+  );
+}
+
+.psb-handle {
+  position: absolute;
+  left: 50%;
+  top: var(--psb-top, 0);
+  translate: -50% 0;
+  width: var(--sb-thumb);
+  min-height: 24px;
+  background: var(--accent);
+  opacity: 0.85;
+  cursor: grab;
+  transition: width 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+}
+
+.psb:hover .psb-handle,
+.psb:active .psb-handle {
+  width: var(--sb-thumb-active);
+  opacity: 1;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.psb:active .psb-handle {
+  cursor: grabbing;
+}
+
 .editor-status {
   display: flex;
   gap: 1rem;

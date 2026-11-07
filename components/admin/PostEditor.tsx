@@ -20,6 +20,8 @@ import {
 import { Markdown } from "@/components/Markdown";
 import { useFeedback } from "@/components/feedback/FeedbackProvider";
 import { ScrollArea } from "@/components/ui/ScrollArea";
+import { PlainScrollbar } from "@/components/ui/PlainScrollbar";
+import { useEditorScrollSync } from "@/components/admin/useEditorScrollSync";
 
 type EditorTag = { id: string; name: string; slug: string };
 
@@ -91,6 +93,9 @@ export function PostEditor({
   const [coverBusy, setCoverBusy] = useState(false);
   const [mode, setMode] = useState<Mode>("split");
   const [fsMode, setFsMode] = useState<FullscreenMode>("off");
+  /** 分屏时两侧滚动是否联动（见 openspec: editor-scroll-sync） */
+  const [syncScroll, setSyncScroll] = useState(true);
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
   // 已解析待确认的导入（编辑器里有内容时先问，不直接覆盖）
   const [pendingImport, setPendingImport] = useState<ParsedMarkdown | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
@@ -119,6 +124,23 @@ export function PostEditor({
   // 窄屏默认只显示编辑区，避免两栏挤在一起
   useEffect(() => {
     if (window.innerWidth < 900) setMode("write");
+  }, []);
+
+  /* ---------- 分屏滚动联动 ---------- */
+
+  useEditorScrollSync({
+    writeRef: textareaRef,
+    previewRef: previewScrollRef,
+    content,
+    // 单栏视图里另一侧不可见：不挂监听，避免空转
+    active: mode === "split",
+    enabled: syncScroll,
+  });
+
+  // 自绘滚动条只能在挂载后接管：无 JS 时必须留着原生条，否则编辑区没有任何滚动条
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) ta.dataset.synced = "1";
   }, []);
 
   /* ---------- 全屏写作 ---------- */
@@ -788,6 +810,25 @@ export function PostEditor({
               </button>
             ))}
           </div>
+          {mode === "split" && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={syncScroll}
+              className={`btn btn-sm ghost editor-sync-toggle${
+                syncScroll ? " active" : ""
+              }`}
+              onClick={() => setSyncScroll((v) => !v)}
+              aria-label="滚动联动"
+              title={
+                syncScroll
+                  ? "滚动联动：开（两侧跟着一起滚，点一下关掉）"
+                  : "滚动联动：关（两侧各自独立滚动，点一下打开）"
+              }
+            >
+              <span aria-hidden="true">{syncScroll ? "⇅" : "⇵"}</span> 滚动联动
+            </button>
+          )}
           {isFullscreen && (
             <button
               type="button"
@@ -815,6 +856,13 @@ export function PostEditor({
             required
             spellCheck={false}
           />
+          {/* 原生条由 [data-synced] 藏掉，换成与预览区同一套自绘轨道 */}
+          <PlainScrollbar
+            targetRef={textareaRef}
+            label="编辑区滚动位置"
+            className="editor-write-bar"
+            version={content}
+          />
           <div className="editor-status">
             <span>{charCount} 字符</span>
             <span>{lineCount} 行</span>
@@ -827,7 +875,12 @@ export function PostEditor({
             <span>实时预览</span>
             <span className="preview-hint">与文章页同一管线</span>
           </div>
-          <ScrollArea axis="y" className="preview-scroll" contentClassName="preview-body">
+          <ScrollArea
+            hostRef={previewScrollRef}
+            axis="y"
+            className="preview-scroll"
+            contentClassName="preview-body"
+          >
             {preview}
           </ScrollArea>
         </section>

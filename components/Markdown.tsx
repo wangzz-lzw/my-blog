@@ -13,13 +13,63 @@ import { toSiteImageUrl } from "@/lib/image-url";
  * - remark：gfm（表格/删除线/任务列表）+ breaks（单换行）
  * - rehype：slug（标题锚点）→ autolink-headings（悬停 #）→ external-links（新标签页）
  *   → highlight（代码高亮，ignoreMissing：无语言/未知语言静默跳过）
+ *   → source-line（块级元素标源码起始行，供后台分屏联动用）
  * - 组件映射：pre → 终端风代码卡（复制按钮）；a → 外链视觉标记
  */
 type HastNode = {
   tagName?: string;
-  properties?: { className?: unknown };
+  type?: string;
+  position?: { start?: { line?: number } };
+  properties?: Record<string, unknown> & { className?: unknown };
   children?: HastNode[];
 };
+
+/**
+ * 给块级元素标上它在 Markdown 源码里的起始行号（`data-src`）。
+ *
+ * 用途只有一个：后台分屏写作时，让「左侧源码的某一行」和「右侧渲染出来的某个块」
+ * 之间有真正的对应关系。按滚动比例联动在长文里必然漂移（一段 5 行源码可能渲染成
+ * 50px，也可能 400px），行号是两边唯一稳定的共同坐标。
+ *
+ * 只标块级：行内元素数量是块级的十几倍，写进去只会让 HTML 膨胀，对定位毫无用处。
+ * 属性会同时出现在前台文章页（同一管线），每块约 14 字节，不含任何内容信息。
+ */
+const BLOCK_TAGS = new Set([
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "p",
+  "pre",
+  "ul",
+  "ol",
+  "blockquote",
+  "table",
+  "hr",
+  "figure",
+]);
+
+function rehypeSourceLine() {
+  // 手写递归而不是引 unist-util-visit：后者只是传递依赖，
+  // 直接 import 会变成幽灵依赖，装依赖时有炸掉的可能。
+  const walk = (node: HastNode) => {
+    const children = node.children;
+    if (!Array.isArray(children)) return;
+    for (const child of children) {
+      if (child.type === "element" && child.tagName && BLOCK_TAGS.has(child.tagName)) {
+        const line = child.position?.start?.line;
+        if (typeof line === "number" && line > 0) {
+          child.properties = { ...(child.properties ?? {}), "data-src": String(line) };
+        }
+      }
+      // 继续深入：列表项的段落、引用里的块、表格里的行都属于块级嵌套
+      walk(child);
+    }
+  };
+  return (tree: HastNode) => walk(tree);
+}
 
 /** 从 pre 的 hast 节点里取出 <code class="hljs language-xxx"> 的语言 */
 function codeLanguage(node: unknown): string | undefined {
@@ -33,9 +83,16 @@ function codeLanguage(node: unknown): string | undefined {
 
 const components: Components = {
   // 语言在服务端就解析好并作为 prop 传入：客户端不再读 children.props，
-  // 否则 SSR 显示 ts、hydration 后显示 text，导致不一致
-  pre: ({ node, children }) => (
-    <CodeBlock language={codeLanguage(node)}>{children}</CodeBlock>
+  // 否则 SSR 显示 ts、hydration 后显示 text，导致不一致。
+  // data-src 是 rehypeSourceLine 标的源码行号，必须显式透传——这个映射渲染的是
+  // CodeBlock 自己的 div，不转发的话 pre 那一层就丢了行号，分屏联动会跳过所有代码块。
+  pre: ({ node, children, ...props }) => (
+    <CodeBlock
+      language={codeLanguage(node)}
+      sourceLine={(props as { "data-src"?: string })["data-src"]}
+    >
+      {children}
+    </CodeBlock>
   ),
   // 图片：地址统一收口到站内 /img（历史 OSS 直链也在这里改写），懒加载 + 异步解码
   img: ({ node, src, ...props }) => (
@@ -101,6 +158,8 @@ export function Markdown({ children }: { children: string }) {
           { target: "_blank", rel: ["noopener", "noreferrer"] },
         ],
         rehypeHighlight,
+        // 放在最后：等 highlight 把 pre>code 改造完再标行号，位置才对应真实块
+        rehypeSourceLine,
       ]}
       components={components}
     >
