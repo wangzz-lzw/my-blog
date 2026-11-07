@@ -42,7 +42,7 @@
 | 账号 | 开放注册（`READER`）、用户名/邮箱 + 密码登录、邮箱验证码注册与补绑、个人资料与头像、改密码 |
 | 评论 | 登录后可评论，全部进待审队列，后台审核/删除 |
 | 后台 | 站点概览、文章增删改（全屏写作 + 实时预览 + 导入 Markdown + AI 摘要）、标签增删改（改名保留旧链接）、评论审核 |
-| 图片 | 头像与封面统一上传到阿里云 OSS，内容寻址去重，页面只出现站内 `/img/<key>` |
+| 图片 | 头像与封面统一上传到阿里云 OSS，内容寻址去重，页面只出现站内 `/img/<key>`；`/admin/images` 图床可浏览与选用 |
 | 外观 | 6 套主题（含唯一亮色主题），全站自绘滚动条，GSAP 动效，移动端适配 |
 
 ---
@@ -100,6 +100,8 @@ pnpm dev                   # http://localhost:3000
 | `pnpm prisma:generate` | 重新生成 Prisma Client |
 | `pnpm prisma:seed` | `tsx --env-file=.env prisma/seed.ts` |
 | `pnpm db:push` | 只推 schema 不建迁移（临时试验用，别用于正式改动） |
+| `npx tsx --env-file=.env scripts/backfill-images.ts` | 把 OSS 里已有的图片补进 `Image` 表（幂等，可反复跑） |
+| `npx tsx scripts/asset-localize-test.ts` | 导入资源本地化的纯逻辑单测（36 个断言） |
 | `npx tsx scripts/sync-test.ts` | 分屏联动算法的单元测试（41 个断言） |
 
 ### 2.4 环境变量
@@ -249,8 +251,10 @@ types/next-auth.d.ts        Session / JWT 类型扩展
 | `ai.ts` | `isAiConfigured`、`summarizePost`（摘要 + 标签白名单过滤） |
 | `mail.ts` | SMTP 发信、`MailNotConfigured`（503）/ `MailSendFailed`（502）、`maskEmail` |
 | `verification.ts` | 验证码签发/校验/限流/过期清理，只存哈希 |
-| `oss.ts` | OSS 配置、上传、读对象、`siteImagePath` |
+| `oss.ts` | OSS 配置、上传、读对象（支持 Range 只读头部）、`siteImagePath` |
+| `images.ts` | 图床：`probeImageSize` 头部解析、`recordImage` 合并写入、`listImages` 分页筛选搜索、`formatBytes` |
 | `image-url.ts` | `toSiteImageUrl`：把 OSS 直链改写成 `/img/<key>`，其它外链原样 |
+| `asset-localize.ts` | 导入时的图片本地化：`findLocalImageRefs` / `rewriteRefs` / `planLocalization` / `indexFiles`（纯函数，可脱离组件单测） |
 | `markdown-import.ts` | `parseMarkdownDocument` / `mergeImport`：文本进、结构出，不碰 React state |
 | `read-time.ts` | 阅读时长：中文 400 字/分 + 西文 200 词/分，最小 1 |
 | `date.ts` | `formatDate`（`zh-CN` 的 medium + short） |
@@ -280,6 +284,7 @@ types/next-auth.d.ts        Session / JWT 类型扩展
 | `/admin/posts/new` | `force-dynamic` | 写作台（新建） |
 | `/admin/posts/[id]` | `force-dynamic` | 写作台（编辑，`id === "new"` 时是新建） |
 | `/admin/tags` | `force-dynamic` | 标签管理表（新建/改名/删除） |
+| `/admin/images` | `force-dynamic` | 图床：网格浏览 + 按用途筛选 + 按标识搜索 + 分页，只读 |
 | `/admin/comments` | **客户端组件**（`"use client"`，`fetch("/api/comments")` 取数） | 评论审核表 |
 | `/welcome` | 301 → `/` | 旧地址收口（`next.config.ts` 的 `redirects`） |
 
@@ -331,6 +336,7 @@ Docker 构建阶段（`Dockerfile` 的 builder 阶段）会起一个**临时的�
 | PATCH | `/api/tags/[id]` | ADMIN | `{name, slug?}` | `{tag}`（旧 slug 进 `aliases`） | 404、409 |
 | DELETE | `/api/tags/[id]` | ADMIN | — | `{ok, detached:n}` | 404 |
 | POST | `/api/upload` | 登录 | formData `file` + `kind=avatar\|cover` | `{ok,url,key,kind,deduped}` | 400 超过 5MB / 类型不支持；503 OSS 未配置 |
+| GET | `/api/images` | ADMIN | `?page=&usage=&q=` | `{ok,total,page,pageCount,images[]}` | 403；503 OSS 未配置 |
 | POST | `/api/ai/summarize` | ADMIN | `{title, content, tags}` | `{excerpt, tags[]}` | 429 限流（10 次/分）；503 未配置；502 调用失败 |
 | GET | `/img/[key]` | 公开 | — | 图片二进制，`immutable` 缓存一年 | 404、503 OSS 未配置、502 读取失败 |
 
@@ -365,6 +371,10 @@ Tag       id, name(unique), slug(unique), aliases String[], createdAt, posts Pos
 
 Comment   id, postId, post(Cascade), author, email?, content(Text), approved(false), createdAt
           @@index([postId, approved])
+
+Image     id, key(unique), hash, ext, contentType, bytes, width?, height?,
+          usage("image"|"cover"|"avatar", 默认 image), uploaderId?, createdAt, lastUsedAt
+          @@index([createdAt]) @@index([usage, createdAt]) @@index([hash])
 ```
 
 要点：
@@ -374,6 +384,9 @@ Comment   id, postId, post(Cascade), author, email?, content(Text), approved(fal
   因此删标签只断关联，文章一行不动；接口把受影响文章数作为 `detached` 返回。
 - `Tag.aliases` 是标签改名后的旧地址集合，`/tags/[slug]` 靠它做 308 永久跳转，
   **上限 20 个**（`TAG_ALIAS_LIMIT`），超出丢最旧的。
+- `Image.key` 唯一（`img/<sha256>.<ext>`），`hash` 只是搜索索引；`uploaderId` **不做外键**——
+  用户注销后图片仍留在 OSS，记录不该随之消失，留一个可能悬空的 id 比级联删除安全。
+  `width/height` 可空：头部解析不出来时留空，不阻断上传。
 
 ### 7.2 迁移
 
@@ -645,6 +658,30 @@ body { height: 100dvh; overflow: hidden }
 - 导入 `.md`（`lib/markdown-import.ts`）：支持 front-matter 的 `title` / `slug` /
   `excerpt|description|summary` / `tags|tag`；没有 title 时取第一行的 `# 标题`。
   编辑器已有内容时先弹确认，支持「替换」与「追加」两种策略。
+- **没有「插入图片」按钮**：图片通过粘贴截图或把文件拖进正文进入（自动上传并插到光标处），
+  与在正文里直接书写图片引用是同一条路径。
+
+#### 导入时的资源本地化（`import-asset-localization`）
+
+导入 `.md` 时可以把它引用的图片**一起选中**（文件多选），或直接把整个文件夹拖进编辑器；
+图片会被上传到 OSS，正文里的本地路径被替换成站内地址。实现在 `lib/asset-localize.ts`（纯逻辑）
+＋ `PostEditor` 的 `localizeAndApply`（异步编排）。
+
+三条关键约定：
+
+1. **匹配用文件名，忽略目录前缀**。引用 `./images/a.png`、`../assets/b.jpg`、`a.png`
+   都按最后的文件名去匹配。原因是 `<input multiple>` 给的 `File` 只有 `name`，
+   没有相对路径；只有拖文件夹才有 `webkitRelativePath`。用文件名让两个入口共用一条路径。
+   同名文件取**第一个**，并在结果里说明。
+2. **上传发生在确认之后**。解析完先算出「将上传 N 张、M 处无法处理」显示在确认条上，
+   用户点「替换 / 追加」才真正上传。上传是不可撤销的副作用，选「取消」不该在 OSS 里留下对象。
+3. **匹配不上的引用原样保留**，不删除也不改写成空链接，只在结果里报告数量。
+   单张失败不阻断其余；全部失败等同按原文导入。
+
+**不参与本地化的目标**：`http(s)://`、`data:`、`#锚点`、以及 `/` 开头的站内绝对路径
+（`/img/…` 正是本地化之后的形态，不排除的话改写过的正文再跑一次会被当成新的本地引用）。
+
+上传复用 `/api/upload`（`kind=image`，内容寻址去重），并发上限 4。上传期间导入控件禁用并显示进度。
 
 #### 分屏滚动联动（`editor-scroll-sync`）
 
@@ -710,10 +747,40 @@ slug 与「所有 slug + 所有 aliases」共用一个命名空间。
 ```
 
 - 头像与封面共用一个命名空间，同一张图只存一份。
+- **图片进入的三种方式**（都在用同一条上传通道）：粘贴截图、把文件拖进正文、
+  导入 Markdown 时随文档一起提供（见 11.1 的资源本地化）。工具栏没有独立的「插入图片」按钮。
 - **页面里绝不出现 OSS 直链**：桶名、地域、哈希构成的直链只走服务端，
   渲染时 `toSiteImageUrl()` 还会把历史数据里的 `*.aliyuncs.com/img/*` 改写成 `/img/*`
   （只认 `img/` 前缀，别人的图床外链原样保留）。
 - 未配置 OSS 时上传接口直接 503 并列出缺哪几个变量，页面照原样显示；仍可手填外链。
+
+#### 图床（`Image` 表 + `/admin/images`）
+
+上传成功后会往 `Image` 表写一条记录（key / hash / 格式 / 字节数 / 宽高 / 用途 / 上传者 / 双时间戳），
+于是"系统里有哪些图片"第一次有了清单。
+
+- **写记录失败要吞掉**。这是本仓库里唯一一处**故意忽略异常**的地方：图片此刻已经在 OSS 里了，
+  写库失败不该让用户以为上传失败去重传一遍。失败只影响这张图能否出现在图床里，日志照打。
+- **记录写在 put 之后**。反过来一旦上传失败就会留下指向不存在对象的记录，图床里会慢慢长出破图。
+- **重复上传走 upsert 合并**：只刷新 `lastUsedAt` 与 `usage`，**不动** `createdAt` 与 `uploaderId`
+  ——首次归属才有意义。表里因此永远是一张图一行。
+- **宽高手写解析，不引依赖**（`lib/images.ts` 的 `probeImageSize`）。`sharp` 只是 Next.js 的传递依赖，
+  直接 import 就是幽灵依赖。四种格式的头部位置写死，**每个 `read*` 前必须做长度检查**——
+  漏了这层，一张截断的 PNG 就会在 `readUInt32BE(20)` 抛 `RangeError`（实测踩到）。
+  认不出或宽高为 0 一律返回 `null`，宽高留空，上传继续。
+- **回填已有对象**：
+
+  ```bash
+  npx tsx --env-file=.env scripts/backfill-images.ts
+  ```
+
+  分页扫 `img/` 前缀，先查后写（可反复执行），只按 Range 读前 64KB 解析尺寸
+  （`readObject(key, { range })`），单个对象异常只计入 `skipped` 不中断。
+- **图床只读**：没有删除入口。图片跨实体共用（同一张可能既是某篇封面、又是另一篇的正文配图、
+  还是某个读者的头像），删错不可恢复，而引用检查要扫全部正文与关联字段，不划算。
+- 列表页是服务端组件直读 Prisma + `searchParams` 翻页筛选（沿用后台惯例）；
+  封面选择器是弹层里的客户端组件，服务端渲染到不了那里，所以额外有一个**只读**
+  `GET /api/images`（`getAdminSession()` 守卫，复用 `listImages`）。
 
 ### 11.5 邮箱验证码
 
@@ -900,6 +967,9 @@ pnpm build           # 生产构建（顺带暴露 RSC/边界问题）
 | 中文 slug 页面 404 | 页面入口漏了 `decodeSlugParam()` |
 | 标签改名后旧链接 500 | `permanentRedirect` 的地址没 `encodeURIComponent` |
 | 上传图片 503 | `.env` 缺 OSS 四项；接口响应里会点名缺哪些 |
+| 上传成功但图床里看不到 | 走的是记录写入失败分支（只在日志里）；查 `[upload] 图片记录写入失败`。图片本身可用，跑一次回填即可补上 |
+| 图床里图片显示 ✕ 占位 | 对象在 OSS 已被删；`/img/<key>` 404 时 `onError` 兜底成占位而不是破图 |
+| 图床页尺寸都是空的 | 头部解析退化为 `null`（格式不认 / 数据截断）。检查 `probeImageSize` 是否漏了边界检查 |
 | 注册/补绑邮箱 503 | SMTP 未配置；端口必须是 465 或 587（阿里云 ECS 封禁 25 出口） |
 | 头像存上了但页头不更新 | 头像由 `/api/me` 取，不走 JWT；确认请求没被缓存（该路由是 `force-dynamic`） |
 | 后台某页白屏且 403 | 当前账号 `role` 不是 ADMIN；JWT 里 role 是登录时写入的，改库后要重新登录 |

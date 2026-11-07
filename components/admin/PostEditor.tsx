@@ -22,6 +22,13 @@ import { useFeedback } from "@/components/feedback/FeedbackProvider";
 import { ScrollArea } from "@/components/ui/ScrollArea";
 import { PlainScrollbar } from "@/components/ui/PlainScrollbar";
 import { useEditorScrollSync } from "@/components/admin/useEditorScrollSync";
+import { ImagePicker } from "@/components/admin/ImagePicker";
+import {
+  planLocalization,
+  rewriteRefs,
+  basename,
+  type LocalRef,
+} from "@/lib/asset-localize";
 
 type EditorTag = { id: string; name: string; slug: string };
 
@@ -43,6 +50,57 @@ type FullscreenMode = "off" | "native" | "immersive";
 
 /** 导入 Markdown 的大小上限：纯文本，1MB 远超一篇长文 */
 const MAX_MD_SIZE = 1024 * 1024;
+
+/** 图片上传的并发上限：太少会让多图导入很慢，太多会同时压满连接数 */
+const UPLOAD_CONCURRENCY = 4;
+
+/**
+ * 一批待导入的东西：一份文档 + 它引用的图片。
+ * 图片顺序就是用户选择的顺序，同名时取先出现的那个（见 lib/asset-localize 的 D1）。
+ */
+type ImportBundle = {
+  parsed: ParsedMarkdown;
+  /** 本地图片引用 → 可用文件 的匹配结果，用于确认条摘要 */
+  plan: ReturnType<typeof planLocalization>;
+  files: File[];
+};
+
+/**
+ * 把一组文件拆成「文档」与「图片」。
+ *
+ * 文档取第一个（多选时如果误选了两份 md，按第一个算，不猜用户想要哪份）。
+ * 图片按 MIME 判断；同时兼容扩展名，因为有些系统对 .webp 给的 type 是空串。
+ */
+function splitImportFiles(list: File[]): { doc: File | null; images: File[] } {
+  const isImage = (f: File) =>
+    f.type.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(f.name);
+  const isDoc = (f: File) =>
+    /\.(md|markdown|txt)$/i.test(f.name) || /^text\/(markdown|plain)$/i.test(f.type);
+
+  const doc = list.find(isDoc) ?? null;
+  const images = list.filter((f) => isImage(f) && f !== doc);
+  return { doc, images };
+}
+
+/** 有上限的并发映射：保持结果顺序，单次失败不影响其余 */
+async function mapWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const i = cursor;
+      cursor += 1;
+      if (i >= items.length) return;
+      results[i] = await task(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 /** 逗号分隔的标签串 → 数组（与 POST /api/posts 的切分口径一致：只认英文逗号） */
 function splitTagInput(value: string): string[] {
@@ -75,7 +133,6 @@ export function PostEditor({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const coverFileRef = useRef<HTMLInputElement | null>(null);
   const mdFileRef = useRef<HTMLInputElement | null>(null);
-  const imageFileRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState(post?.title ?? "");
   const [slug, setSlug] = useState(post?.slug ?? "");
@@ -96,8 +153,12 @@ export function PostEditor({
   /** 分屏时两侧滚动是否联动（见 openspec: editor-scroll-sync） */
   const [syncScroll, setSyncScroll] = useState(true);
   const previewScrollRef = useRef<HTMLDivElement | null>(null);
-  // 已解析待确认的导入（编辑器里有内容时先问，不直接覆盖）
-  const [pendingImport, setPendingImport] = useState<ParsedMarkdown | null>(null);
+  /** 封面选择器（从图床挑已有图片）是否打开 */
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // 已解析待确认的导入（编辑器里有内容、或带图片时先问，不直接覆盖）
+  const [pendingImportBundle, setPendingImportBundle] = useState<ImportBundle | null>(null);
+  /** 导入时的图片上传是否进行中（与粘贴/拖入的 imageBusy 分开：两者不会同时发生） */
+  const [importBusy, setImportBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [hint, setHint] = useState("");
   const { alert: notify } = useFeedback();
@@ -295,11 +356,21 @@ export function PostEditor({
 
   /* ---------- 导入 Markdown 文件 ---------- */
 
-  /** 把解析结果落到编辑器（替换或追加）；读取与解析都已在调用前完成 */
-  function applyImport(parsed: ParsedMarkdown, strategy: ImportStrategy) {
+  /**
+   * 把一批导入结果落到编辑器（替换或追加）。
+   *
+   * 传入的 `content` 是**已经本地化过**的正文——上传发生在确认之后，见 localizeAndApply。
+   * 这个函数只负责写入，因此保持同步、原子（一次 setState 批次）。
+   */
+  function applyImportWithContent(
+    parsed: ParsedMarkdown,
+    strategy: ImportStrategy,
+    content: string,
+    note: string
+  ) {
     const next = mergeImport(
       { title, slug, excerpt, content, tags },
-      parsed,
+      { ...parsed, body: content },
       strategy,
       { isEdit }
     );
@@ -309,16 +380,8 @@ export function PostEditor({
     setContent(next.content);
     setTags(next.tags);
     setError("");
-    setPendingImport(null);
-    // 导入的 md 里如果有相对路径图片，这里无法访问到那些文件，明确提示一次
-    const localImages = (
-      next.content.match(/!\[[^\]]*\]\((?!https?:\/\/|data:|#)[^)\s]+\)/g) ?? []
-    ).length;
-    setHint(
-      localImages > 0
-        ? `正文里有 ${localImages} 处本地图片引用（相对路径），博客看不到它们；请用「插入图片」重新上传到 OSS`
-        : ""
-    );
+    setPendingImportBundle(null);
+    setHint(note);
     const caret = strategy === "append" ? next.content.length : 0;
     requestAnimationFrame(() => {
       const ta = textareaRef.current;
@@ -328,25 +391,111 @@ export function PostEditor({
     });
   }
 
-  async function onMarkdownFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  /** 没有图片要处理时的快捷路径：直接按解析结果写入 */
+  function applyImport(parsed: ParsedMarkdown, strategy: ImportStrategy) {
+    applyImportWithContent(parsed, strategy, parsed.body, "");
+  }
+
+  /**
+   * 上传匹配到的图片，改写正文里的引用，然后写入编辑器。
+   *
+   * 顺序是刻意的（design D3/D4）：**用户点了替换/追加之后**才开始上传——
+   * 上传是不可撤销的副作用，选「取消」不该在 OSS 里留下对象。
+   * 图片全部处理完才一次性写入正文，避免半截状态。
+   */
+  async function localizeAndApply(bundle: ImportBundle, strategy: ImportStrategy) {
+    const { parsed, plan, files } = bundle;
+    setPendingImportBundle(null);
     setError("");
 
-    if (!/\.(md|markdown|txt)$/i.test(file.name)) {
-      setError("只支持 .md / .markdown / .txt 文件");
+    // 没有可匹配的图片：等价于"只导入文档"，本地引用原样保留
+    if (plan.matched.length === 0) {
+      const note =
+        plan.missing.length > 0
+          ? `正文里有 ${plan.missing.length} 处本地图片没能匹配到文件，已原样保留`
+          : "";
+      applyImportWithContent(parsed, strategy, parsed.body, note);
       return;
     }
-    if (file.size > MAX_MD_SIZE) {
-      setError("文件超过 1MB，请拆分后再导入");
+
+    setImportBusy(true);
+    try {
+      // 只上传被正文真正引用的图片：多选时用户可能连带选了没引用的图
+      const wanted = new Map<string, LocalRef>();
+      for (const ref of plan.matched) wanted.set(basename(ref.target), ref);
+      const targets = [...wanted.entries()];
+
+      let done = 0;
+      setHint(`正在上传 0/${targets.length}…`);
+
+      const results = await mapWithLimit(targets, UPLOAD_CONCURRENCY, async ([name]) => {
+        const file = files.find((f) => f.name === name);
+        if (!file) return { name, url: "", error: "文件缺失" };
+        try {
+          const url = await uploadImageToOss(file);
+          return { name, url, error: "" };
+        } catch (e) {
+          return { name, url: "", error: e instanceof Error ? e.message : "上传失败" };
+        } finally {
+          done += 1;
+          setHint(`正在上传 ${done}/${targets.length}…`);
+        }
+      });
+
+      const mapping = new Map<string, string>();
+      const failed: string[] = [];
+      for (const r of results) {
+        if (r.url) mapping.set(r.name, r.url);
+        else failed.push(r.name);
+      }
+
+      const rewritten = rewriteRefs(parsed.body, mapping);
+
+      // 结果提示：成功多少、还剩多少没处理
+      const parts: string[] = [];
+      if (rewritten.replaced > 0) parts.push(`已上传并替换 ${rewritten.replaced} 张图片`);
+      if (failed.length > 0) parts.push(`${failed.length} 张上传失败`);
+      if (rewritten.unmatched.length > 0) {
+        parts.push(`${rewritten.unmatched.length} 处引用未能匹配到文件（已原样保留）`);
+      }
+      if (plan.duplicates.length > 0) {
+        parts.push(`有 ${plan.duplicates.length} 个同名文件，取用了第一个`);
+      }
+
+      applyImportWithContent(parsed, strategy, rewritten.content, parts.join("；"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "导入失败");
+      setPendingImportBundle(null);
+    } finally {
+      setImportBusy(false);
+      setHint("");
+    }
+  }
+
+  /**
+   * 导入的共用入口：文件选择器与拖入都走这里。
+   *
+   * 拆出这层是因为拖入与选择器拿到的都是「一堆 File」，区别只在来源；
+   * 匹配规则用文件名，所以两条路径不需要分支（design D6）。
+   */
+  async function importFromFiles(list: File[]) {
+    if (!list.length) return;
+    setError("");
+
+    const { doc, images } = splitImportFiles(list);
+    if (!doc) {
+      setError("这批文件里没有找到 .md / .markdown / .txt 文档");
+      return;
+    }
+    if (doc.size > MAX_MD_SIZE) {
+      setError("文档超过 1MB，请拆分后再导入");
       return;
     }
 
     // 读取 + 解析都发生在 setState 之前：任何一步失败都只报错，编辑器保持原样
     let parsed: ParsedMarkdown | null = null;
     try {
-      parsed = parseMarkdownDocument(await file.text());
+      parsed = parseMarkdownDocument(await doc.text());
     } catch {
       setError("读取文件失败，请重新选择");
       return;
@@ -356,12 +505,23 @@ export function PostEditor({
       return;
     }
 
+    // 摘要在上传之前就能算出来：只需要文档里的引用 + 已选文件的文件名
+    const plan = planLocalization(parsed.body, images);
+    const bundle: ImportBundle = { parsed, plan, files: images };
+
     const hasContent = [title, content, excerpt, tags].some((v) => v.trim() !== "");
-    if (hasContent) {
-      setPendingImport(parsed);
+    if (hasContent || plan.matched.length > 0) {
+      setPendingImportBundle(bundle);
       return;
     }
-    applyImport(parsed, "replace");
+    await localizeAndApply(bundle, "replace");
+  }
+
+  async function onMarkdownFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const list = Array.from(e.target.files ?? []);
+    // 先清空 value：同一个文件再次选择时也要能触发 change
+    e.target.value = "";
+    await importFromFiles(list);
   }
 
   /** 图片先传到阿里云 OSS（复用 /api/upload，内容寻址去重），再把 Markdown 语法插进正文 */
@@ -425,9 +585,20 @@ export function PostEditor({
   function onEditorDrop(e: React.DragEvent<HTMLFormElement>) {
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
-    if (!Array.from(files).some((f) => f.type.startsWith("image/"))) return;
+    const list = Array.from(files);
+
+    // 拖进来的东西里带文档 → 走导入流程（可连同图片一起本地化）
+    const { doc } = splitImportFiles(list);
+    if (doc) {
+      e.preventDefault();
+      void importFromFiles(list);
+      return;
+    }
+
+    // 只有图片 → 老规矩：上传后插到光标处
+    if (!list.some((f) => f.type.startsWith("image/"))) return;
     e.preventDefault();
-    void handleImageFiles(files);
+    void handleImageFiles(list);
   }
 
   async function handleAi() {
@@ -538,30 +709,50 @@ export function PostEditor({
         </div>
       </div>
 
-      {pendingImport && (
+      {pendingImportBundle && (
         <div
           className="editor-import-bar"
           role="alertdialog"
           aria-label="导入方式"
           onKeyDown={(e) => {
-            if (e.key === "Escape") setPendingImport(null);
+            if (e.key === "Escape") setPendingImportBundle(null);
           }}
         >
-          <p>
-            编辑器里已经有内容。用这份文件替换正文，还是追加到正文末尾？
-          </p>
+          <div className="editor-import-info">
+            <p>
+              编辑器里已经有内容。用这份文件替换正文，还是追加到正文末尾？
+            </p>
+            {/* 资源摘要：上传前就能算出来，让用户在覆盖正文之前知道要发生什么 */}
+            {(pendingImportBundle.plan.matched.length > 0 ||
+              pendingImportBundle.plan.missing.length > 0) && (
+              <p className="editor-import-assets">
+                {pendingImportBundle.plan.matched.length > 0 && (
+                  <span>
+                    将上传 {pendingImportBundle.plan.matched.length} 张图片并替换引用
+                  </span>
+                )}
+                {pendingImportBundle.plan.missing.length > 0 && (
+                  <span className="is-missing">
+                    {pendingImportBundle.plan.missing.length} 处引用找不到对应文件，会原样保留
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
           <div className="editor-import-actions">
             <button
               type="button"
               className="btn btn-sm"
-              onClick={() => applyImport(pendingImport, "replace")}
+              disabled={importBusy}
+              onClick={() => void localizeAndApply(pendingImportBundle, "replace")}
             >
               替换
             </button>
             <button
               type="button"
               className="btn btn-sm ghost"
-              onClick={() => applyImport(pendingImport, "append")}
+              disabled={importBusy}
+              onClick={() => void localizeAndApply(pendingImportBundle, "append")}
             >
               追加到末尾
             </button>
@@ -569,7 +760,8 @@ export function PostEditor({
               type="button"
               className="btn btn-sm ghost"
               autoFocus
-              onClick={() => setPendingImport(null)}
+              disabled={importBusy}
+              onClick={() => setPendingImportBundle(null)}
             >
               取消
             </button>
@@ -685,6 +877,14 @@ export function PostEditor({
             >
               {coverBusy ? "上传中…" : "上传"}
             </button>
+            {/* 从图床挑一张已有图片（见 openspec: image-library） */}
+            <button
+              type="button"
+              className="btn btn-sm ghost"
+              onClick={() => setPickerOpen(true)}
+            >
+              从图床选
+            </button>
             <input
               ref={coverFileRef}
               type="file"
@@ -752,41 +952,24 @@ export function PostEditor({
         </div>
 
         <div className="editor-toolbar-right">
-          <button
-            type="button"
-            className="btn btn-sm ghost"
-            onClick={() => imageFileRef.current?.click()}
-            disabled={imageBusy}
-            aria-label="插入图片"
-            title="插入图片：选择文件，或直接把截图粘贴 / 拖进编辑器（自动上传到 OSS）"
-          >
-            {imageBusy ? "上传中…" : "插入图片"}
-          </button>
-          <input
-            ref={imageFileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(e) => {
-              const files = e.target.files;
-              e.target.value = "";
-              void handleImageFiles(files);
-            }}
-          />
+          {/* 没有独立的「插入图片」按钮：图片靠粘贴 / 拖入正文进入，
+              与在正文里直接书写图片引用是同一条路径（见 openspec: localize-import-assets） */}
           <button
             type="button"
             className="btn btn-sm ghost"
             onClick={() => mdFileRef.current?.click()}
+            disabled={importBusy}
             aria-label="导入 Markdown 文件"
-            title="导入 .md / .markdown / .txt（≤1MB）"
+            title="导入 .md / .markdown / .txt（≤1MB）——可以同时把文档引用的图片一起选上，图片会自动上传并替换引用"
           >
-            导入 md
+            {importBusy ? "处理中…" : "导入 md"}
           </button>
           <input
             ref={mdFileRef}
             type="file"
-            accept=".md,.markdown,.txt,text/markdown,text/plain"
+            // 多选：文档 + 它引用的图片一次选完；图片会自动上传并替换正文里的引用
+            accept=".md,.markdown,.txt,text/markdown,text/plain,image/*"
+            multiple
             hidden
             onChange={onMarkdownFile}
           />
@@ -885,6 +1068,12 @@ export function PostEditor({
           </ScrollArea>
         </section>
       </div>
+
+      <ImagePicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onPick={(img) => setCover(`/img/${img.key.replace(/^img\//, "")}`)}
+      />
     </form>
   );
 }

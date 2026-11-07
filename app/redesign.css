@@ -1585,6 +1585,29 @@ textarea::placeholder {
   color: var(--fg);
 }
 
+/* 左侧信息块：主问句 + 资源摘要，两行都靠左 */
+.editor-import-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+
+/* 资源摘要：上传前就告诉用户要发生什么（将上传几张、几处无法处理） */
+.editor-import-assets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-2);
+}
+
+.editor-import-assets .is-missing {
+  color: var(--accent-2);
+}
+
 .editor-import-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3065,5 +3088,88 @@ body.immersive .article-rail {
 @media print {
   .article-rail {
     display: none !important;
+  }
+}
+/* ---------- 图床选择器（见 openspec: image-library） ---------- */
+/*
+ * 复用 fb-overlay（z-index 200）作为遮罩；弹层本身要比它高一层。
+ * 网格与图床页共用 .img-grid / .img-tile，样式在 globals.css 里定义。
+ */
+
+.picker-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 201;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(62rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100dvh - 3rem));
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: var(--shadow-strong);
+  color: var(--fg);
+}
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: 0 0 auto;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.picker-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.picker-close {
+  padding: 0.1rem 0.4rem;
+  color: var(--ink-3);
+  font-size: 0.9rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.picker-close:hover {
+  color: var(--accent);
+}
+
+.picker-filter {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.75rem 1.1rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* 只有这块滚：头部与筛选条固定，翻图时不跟着走 */
+.picker-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+@media (max-width: 720px) {
+  .picker-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .picker-body {
+    padding: 0.75rem;
   }
 }

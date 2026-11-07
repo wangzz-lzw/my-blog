@@ -80,12 +80,20 @@ export function siteImagePath(key: string): string {
   return `/img/${key.replace(/^img\//, "")}`;
 }
 
-/** 从 OSS 读取对象（供 /img 代理路由使用）；不存在返回 null */
+/**
+ * 从 OSS 读取对象（供 /img 代理路由与回填脚本使用）；不存在返回 null。
+ *
+ * `options.range` 传 `bytes=0-65535` 这类值可以只取头部——回填脚本解析尺寸时
+ * 只需要前几十 KB，没必要把几 MB 的原图整个拉下来。
+ */
 export async function readObject(
-  key: string
+  key: string,
+  options?: { range?: string }
 ): Promise<{ body: Buffer; contentType: string } | null> {
   try {
-    const res = await client().get(key);
+    const res = await client().get(key, {
+      ...(options?.range ? { headers: { Range: options.range } } : {}),
+    });
     const content = (res as unknown as { content?: Buffer }).content;
     if (!content) return null;
     const headers = (res as unknown as { res?: { headers?: Record<string, string> } })

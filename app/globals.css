@@ -3844,3 +3844,268 @@ body:has(.sheet--scroll) .app-scroll-content {
   width: auto;
   min-width: 0;
 }
+
+/* ---------- 图床（/admin/images，见 openspec: image-library） ---------- */
+
+/* 页面级提示条：配置缺失、空状态共用 */
+.admin-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--rule-soft);
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.admin-notice strong {
+  color: var(--fg-bright);
+  font-size: 0.92rem;
+}
+
+.admin-notice p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.84rem;
+  line-height: 1.75;
+}
+
+.admin-notice code {
+  padding: 0.05em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  background: var(--code-bg);
+  color: var(--accent);
+}
+
+/* 筛选条：搜索框 + 用途切换 */
+.img-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.85rem;
+}
+
+.img-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.img-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  outline: none;
+}
+
+.img-search input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.img-usage-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.img-usage-filter button {
+  padding: 0.25rem 0.6rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.img-usage-filter button:hover {
+  color: var(--accent);
+  border-color: var(--border);
+}
+
+.img-usage-filter button.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.img-count {
+  margin-bottom: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+/* 网格：定宽列，缩略图固定比例，避免加载前后抖动 */
+.img-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.img-tile {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule-soft);
+  background: color-mix(in srgb, var(--bg-2) 60%, transparent);
+  transition: border-color 0.16s ease;
+}
+
+.img-tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.img-tile-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--bg-deep);
+}
+
+.img-tile-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+}
+
+.img-tile-thumb.pickable {
+  cursor: pointer;
+}
+
+/* 对象被删掉时给可辨认的占位，而不是破图图标 */
+.img-tile-broken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+}
+
+.img-tile-pick {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.22rem 0.6rem;
+  color: var(--btn-fg);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.img-tile:hover .img-tile-pick,
+.img-tile-pick:focus-visible {
+  opacity: 1;
+}
+
+/* 信息行：等宽小字，交给"机器嗓子" */
+.img-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.55rem;
+  padding: 0.5rem 0.6rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--ink-3);
+}
+
+.img-tile-dim {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.img-tile-size {
+  font-variant-numeric: tabular-nums;
+}
+
+.img-tile-usage {
+  padding: 0 0.3rem;
+  border: 1px solid var(--rule-soft);
+}
+
+.img-tile-usage[data-usage="cover"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.img-tile-usage[data-usage="avatar"] {
+  color: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 45%, transparent);
+}
+
+.img-tile-time {
+  flex: 1 1 auto;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.img-tile-copy {
+  flex: 0 0 100%;
+  padding: 0.2rem 0;
+  margin-top: 0.15rem;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--rule-soft);
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.img-tile-copy:hover {
+  color: var(--accent);
+}
+
+/* 分页 */
+.img-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.75rem;
+}
+
+.img-pager-now {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--ink-3);
+}
+
+/* 只有一边有按钮时，用等宽占位让中间的页码不左右跳 */
+.img-pager-gap {
+  display: inline-block;
+  min-width: 5.5rem;
+}
+
+@media (max-width: 720px) {
+  .img-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .img-search {
+    max-width: none;
+  }
+}

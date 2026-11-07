@@ -7,6 +7,7 @@ import {
   siteImagePath,
   uploadImage,
 } from "@/lib/oss";
+import { probeImageSize, recordImage, type ImageUsage } from "@/lib/images";
 
 export const runtime = "nodejs";
 
@@ -65,6 +66,33 @@ export async function POST(req: NextRequest) {
     if (!exists) {
       await uploadImage(key, buf, file.type);
     }
+
+    /**
+     * 记一条图床记录（见 openspec: image-library）。
+     *
+     * 这是本文件里唯一一处故意吞掉异常的地方：图片此刻已经在 OSS 里了，
+     * 写库失败不该让用户以为上传失败去重传一遍。失败只影响这张图能否出现在图床里。
+     *
+     * 放在 put 之后写：先写记录再上传的话，一旦上传失败就会留下指向不存在对象的记录，
+     * 图床里会慢慢长出一堆破图。
+     */
+    try {
+      const size = probeImageSize(buf);
+      await recordImage({
+        key,
+        hash,
+        ext,
+        contentType: file.type,
+        bytes: file.size,
+        width: size?.width ?? null,
+        height: size?.height ?? null,
+        usage: kind as ImageUsage,
+        uploaderId: session.user.id,
+      });
+    } catch (e) {
+      console.error("[upload] 图片记录写入失败（不影响上传）", key, e);
+    }
+
     // 只返回站内地址：OSS 的桶名/地域不出现在响应里（/img 路由负责代理取对象）
     const url = siteImagePath(key);
     return NextResponse.json({ ok: true, url, key, kind, deduped: exists });

@@ -77,3 +77,26 @@ model Comment {
 
   @@index([postId, approved])
 }
+
+/// 图床里的图片记录（见 openspec: image-library）。
+///
+/// 图片本身存在 OSS 的 img/<sha256>.<ext>，这里只记元信息。
+/// 内容寻址意味着同一张图只有一个 key，所以 key 唯一就够了，重复上传走 upsert 合并。
+model Image {
+  id          String   @id @default(cuid())
+  key         String   @unique // img/<sha256>.<ext>，页面经 /img/<key> 代理访问
+  hash        String // sha256，搜索与去重判断用
+  ext         String // jpg / png / webp / gif
+  contentType String
+  bytes       Int
+  width       Int? // 头部解析失败时留空，不阻断上传
+  height      Int?
+  usage       String   @default("image") // 最近一次用途：avatar | cover | image
+  uploaderId  String? // 不做外键：用户注销后图片仍在，记录不该随之消失
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([usage, createdAt])
+  @@index([hash])
+}
