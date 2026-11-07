@@ -2925,3 +2925,145 @@ html.js-ready .welcome-actions {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- 文章大纲（宽屏左侧，见 openspec: post-outline） ---------- */
+/*
+ * 正文的 34em 量宽用不满 860px 的壳，左侧那条留白本来是空的 —— 大纲就借用它：
+ * 绝对定位到壳的左外侧，由内层 sticky 吸住。壳的宽度、居中方式、padding 一概不动，
+ * 所以无论大纲在不在，正文左缘位置都不变。
+ */
+
+.article-shell {
+  position: relative;
+}
+
+.article-rail {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 172px;
+  margin-right: 28px;
+}
+
+/* 由脚本门控（≥1280px 且标题 ≥2 条）：内容没有时不占位、不显示空栏 */
+.article-rail[data-ready="1"] {
+  display: block;
+}
+
+/* 沉浸阅读把主区收窄到 720px，这时壳左侧没有留白可借 */
+body.immersive .article-rail {
+  display: none;
+}
+
+.article-rail-inner {
+  position: sticky;
+  top: 84px; /* 60px 页头 + 1px 边框 + 23px 呼吸 */
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: calc(100dvh - 116px);
+}
+
+.article-rail-title {
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule-soft);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+/* 标题多到超过一屏时，大纲自己滚，不带动正文 */
+.article-rail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.article-rail-body {
+  padding-right: 0.25rem;
+}
+
+.outline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.outline-item + .outline-item {
+  margin-top: 0.05rem;
+}
+
+.outline a {
+  position: relative;
+  display: flex;
+  gap: 0.45rem;
+  padding: 0.28rem 0 0.28rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color 0.16s ease;
+}
+
+/* 左缘一根发丝线是位置标尺；当前项换成 2px 强调色（不改变盒尺寸） */
+.outline a::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  width: 1px;
+  background: var(--rule-soft);
+}
+
+.outline a:hover {
+  color: var(--fg);
+}
+
+/* 描边往内收：容器的 overflow 会把它裁掉 */
+.outline a:focus-visible {
+  outline-offset: -2px;
+}
+
+.outline-item[data-active="1"] a {
+  color: var(--accent);
+}
+
+.outline-item[data-active="1"] a::before {
+  width: 2px;
+  background: var(--accent);
+}
+
+.outline-item[data-level="3"] a {
+  padding-left: 1.5rem;
+  font-size: 0.68rem;
+}
+
+.outline-n {
+  flex: 0 0 auto;
+  padding-top: 0.1rem;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.outline-item[data-active="1"] .outline-n {
+  color: inherit;
+}
+
+.outline-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  .article-rail {
+    display: none !important;
+  }
+}

@@ -2,6 +2,8 @@
 
 基于 Next.js + TypeScript + Prisma + PostgreSQL 的个人博客。支持前台文章浏览/评论、后台 Markdown 写作与管理，可自建服务器 Docker 部署。
 
+> 开发细节（架构分层、接口清单、样式与主题 token、滚动体系、排障速查）见 **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**。
+
 ## 技术栈
 
 - **框架**：Next.js 16（App Router）+ React 19

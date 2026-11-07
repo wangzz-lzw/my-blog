@@ -9,6 +9,7 @@ import { CommentForm } from "@/components/CommentForm";
 import { GsapReveal } from "@/components/GsapReveal";
 import { ReadingProgress } from "@/components/ReadingProgress";
 import { PostViewBeacon } from "@/components/PostViewBeacon";
+import { PostOutline } from "@/components/blog/PostOutline";
 import type { SafeComment } from "@/lib/types";
 
 export const revalidate = 60;
@@ -70,6 +71,8 @@ export default async function PostPage({
     <GsapReveal>
       <ReadingProgress />
       <div className="article-shell">
+      {/* 宽屏左侧大纲：绝对定位在壳的左外侧，正文排版不受影响 */}
+      <PostOutline />
       <article className="article post-detail">
         <header className="post-header" data-reveal>
           <div className="post-when">

@@ -54,7 +54,6 @@ export default async function WelcomePage() {
       },
     }),
   ]);
-
   const orbitData: OrbitPost[] = orbitPosts.map((p) => ({
     id: p.id,
     slug: p.slug,
