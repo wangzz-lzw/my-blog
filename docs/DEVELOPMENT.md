@@ -276,8 +276,8 @@ types/next-auth.d.ts        Session / JWT 类型扩展
 | `/posts/[slug]` | `revalidate = 60` | 文章详情：摘要、正文、代码高亮、标签、评论（仅 `approved`）、阅读进度、浏览量 beacon；≥1280px 时左侧多一列文章大纲 |
 | `/tags` | `force-dynamic` | 标签索引，含每个标签的文章数 |
 | `/tags/[slug]` | `revalidate = 60` | 标签归档；命中 `aliases` 时 **308 永久重定向**到新地址；都没有则 404 |
-| `/login` | 无显式 `dynamic`，服务端读 `searchParams` | 登录（`identifier` = 用户名或邮箱） |
-| `/register` | 无显式 `dynamic`，服务端读 `searchParams` | 注册（邮箱验证码） |
+| `/login` | 无显式 `dynamic`，服务端读 `searchParams` | 登录（`identifier` = 用户名或邮箱）；与 `/register` 共用 `AuthCard`，切换就地完成 |
+| `/register` | 无显式 `dynamic`，服务端读 `searchParams` | 注册（邮箱验证码），分两步：账号与邮箱 → 设置密码 |
 | `/profile` | `force-dynamic` | 昵称/头像/邮箱补绑/改密码 |
 | `/admin` | `force-dynamic` | 概览：文章数、浏览量、待审评论等 |
 | `/admin/posts` | `force-dynamic` | 文章表（含草稿） |
@@ -782,7 +782,31 @@ slug 与「所有 slug + 所有 aliases」共用一个命名空间。
   封面选择器是弹层里的客户端组件，服务端渲染到不了那里，所以额外有一个**只读**
   `GET /api/images`（`getAdminSession()` 守卫，复用 `listImages`）。
 
-### 11.5 邮箱验证码
+### 11.5 登录 / 注册切换（`components/auth/AuthSwitcher.tsx`）
+
+欢迎页右侧的内嵌面板与 `/login`、`/register` 两个独立页**共用同一个切换器**，
+差异只有外壳（面板带关闭按钮、独立页是居中卡片）与成功后的去向。
+
+- **横向轨道换页**：两块 pane 永远挂载、叠在同一条 `.auth-track` 上，切换时当前页
+  `xPercent: ±100` 退场、目标页从另一侧进入。不是原地淡入——那样看不出"翻页"。
+- **高度跟随内容**：激活块留在文档流里撑开轨道，非激活块 `position: absolute` 叠上去；
+  切换时把轨道 `height` 过渡到新内容的高度。旧实现用 `max(两块高度)` 永久撑开，
+  停在登录时会空出一大片。
+- **注册分两步**：`RegisterFields` 内部维护 `step`，第 1 步账号与邮箱验证码、第 2 步密码。
+  提交仍在第 2 步一次性发 `/api/register`——拆成两次请求会留下"账号已建但密码没设"的中间态。
+  步骤**不进 URL**，`/register` 永远是第 1 步。
+- 切换 tab 时步骤复位；两个动作都不丢已填内容。
+
+⚠️ 两个实现坑（都实测踩过）：
+
+1. **不能用 `router.replace` 同步 URL**。它会触发 RSC 重渲染 → 组件树重建 →
+   `AuthSwitcher` 重新挂载 → 输入清空、动画从头开始。用 `history.replaceState` 只改地址栏。
+   tab 状态要提到 `AuthCard` 里做成受控（`tab` + `onTabChange`），别留在切换器内部。
+2. **隐藏那块不能用 `visibility: hidden`**。它会让 `transform` 的起始值在切换瞬间被按
+   "不可见"重算，实测导致换页起点错乱（注册页起点变成 0 而不是右侧 380px）。
+   改成只给其中的可聚焦元素设 `visibility: hidden`，块本身交给轨道的 `overflow: hidden` 裁掉。
+
+### 11.6 邮箱验证码
 
 规则（`lib/verification.ts`）：
 
@@ -800,7 +824,7 @@ slug 与「所有 slug + 所有 aliases」共用一个命名空间。
 发信失败会把刚建的记录作废（`revokeCode`），不留下「看起来发出去了」的码。
 邮件正文刻意不放链接（个人邮箱 SMTP 带链接更容易进垃圾箱）。
 
-### 11.6 AI 摘要
+### 11.7 AI 摘要
 
 `POST /api/ai/summarize`：拿标题 + 正文（截前 8000 字）+ 已选标签 + 全站标签白名单，
 调 OpenAI 兼容的 `/chat/completions`（`temperature: 0.3`），返回 `{ excerpt(≤300 字), tags[] }`。

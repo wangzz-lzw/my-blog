@@ -172,6 +172,11 @@
 
 * {
   box-sizing: border-box;
+  
+}
+::selection{
+  background: none;
+  color: none;
 }
 
 html {
@@ -410,6 +415,37 @@ a:hover {
 
 .site-nav > a:hover::before {
   right: 0;
+}
+
+/* 页头「问问」入口：全站问答的显眼入口，用实心强调色与纯文字导航项拉开层级 */
+.ask-nav-btn {
+  padding: 0.35rem 0.9rem;
+  color: var(--btn-fg);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: box-shadow 0.2s, filter 0.2s, color 0.2s;
+}
+
+.ask-nav-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 12px var(--glow);
+}
+
+.ask-nav-btn.is-active {
+  color: var(--accent);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.ask-nav-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ============ 右上角：登录按钮 / 用户头像 ============ */

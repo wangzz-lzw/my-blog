@@ -36,8 +36,10 @@ export function LoginFields({ onSuccess }: { onSuccess: () => void }) {
     onSuccess();
   }
 
+  // noValidate：交给 handleSubmit 统一校验并用站点提示，
+  // 否则浏览器原生气泡会先拦住提交，用户只看到系统样式的提示
   return (
-    <form className="login-form" onSubmit={handleSubmit}>
+    <form className="login-form" noValidate onSubmit={handleSubmit}>
       <div className="field">
         <label>用户名 / 邮箱</label>
         <input

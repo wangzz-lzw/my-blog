@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HeaderAuth } from "@/components/HeaderAuth";
 import { SiteNav } from "@/components/SiteNav";
 import { FloatTools } from "@/components/FloatTools";
+import { AskLauncher } from "@/components/ask/AskLauncher";
 import { SITE_NAME } from "@/lib/site";
 
 /**
@@ -34,6 +35,7 @@ export default function SiteLayout({
           </Link>
           <nav className="site-nav" aria-label="站点导航">
             <SiteNav />
+            <AskLauncher variant="header" />
             <HeaderAuth />
           </nav>
         </div>

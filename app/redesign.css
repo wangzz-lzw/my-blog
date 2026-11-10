@@ -715,6 +715,248 @@ body:has(.sheet--scroll) .list-host {
   pointer-events: none;
 }
 
+/* ---------- 站内问答：右下角入口 + 面板 ---------- */
+
+/* 入口与 FloatTools 同侧但独立：那组在 bottom:6rem，这个贴右下角 */
+.ask-launch {
+  position: fixed;
+  right: 1.4rem;
+  bottom: 1.6rem;
+  z-index: 95;
+  width: 44px;
+  height: 44px;
+  font-size: 1.05rem;
+}
+
+.ask-panel {
+  position: fixed;
+  right: 1.4rem;
+  bottom: 5.2rem;
+  z-index: 96;
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, calc(100vw - 2rem));
+  height: min(34rem, calc(100dvh - 8rem));
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow-strong);
+  color: var(--fg);
+}
+
+.ask-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: 0 0 auto;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.ask-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ask-title {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  color: var(--fg-bright);
+}
+
+.ask-sub {
+  font-size: 0.74rem;
+  color: var(--ink-3);
+}
+
+.ask-close {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.ask-close:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ask-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+}
+
+.ask-empty {
+  padding: 1.5rem 0.2rem;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--ink-2);
+}
+
+.ask-empty-hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+
+.ask-msg + .ask-msg {
+  margin-top: 1.4rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.ask-q {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--fg-bright);
+}
+
+.ask-status,
+.ask-notice,
+.ask-error {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--ink-3);
+}
+
+.ask-notice,
+.ask-error {
+  margin-top: 0.7rem;
+  padding: 0.5rem 0.7rem;
+  color: var(--accent-2);
+  border-left: 2px solid var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 6%, transparent);
+}
+
+.ask-a {
+  font-size: 0.88rem;
+  line-height: 1.85;
+  color: var(--fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ask-caret {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--accent);
+  animation: ask-blink 1s steps(2, start) infinite;
+}
+
+@keyframes ask-blink {
+  to {
+    opacity: 0;
+  }
+}
+
+.ask-sources,
+.ask-topics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.ask-sources-label,
+.ask-topics-label {
+  flex: 0 0 100%;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-3);
+}
+
+.ask-source,
+.ask-topic {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.74rem;
+  color: var(--ink-2);
+  border: 1px solid var(--rule-soft);
+  text-decoration: none;
+}
+
+.ask-source:hover,
+.ask-topic:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.ask-form {
+  display: flex;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding: 0.75rem;
+  border-top: 1px solid var(--rule-soft);
+  background: var(--bg);
+}
+
+.ask-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.84rem;
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  outline: none;
+}
+
+.ask-form input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.ask-send {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--btn-fg);
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.ask-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 720px) {
+  .ask-launch {
+    right: 1rem;
+    bottom: 1rem;
+  }
+
+  .ask-panel {
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100dvh;
+    border: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-caret {
+    animation: none;
+  }
+}
+
 /* 悬停气泡：浮在按钮上方，纸质小牌 */
 .float-bubble {
   position: absolute;
@@ -2511,19 +2753,155 @@ html.js-ready .welcome-actions {
   border-color: var(--w-ink);
 }
 
-/* 两块面板始终挂载，靠可见性切换——切回来时输入还在。
-   非激活的一块不要用 inset:0（会被拉到容器高度，量不到自身自然高度） */
-.auth-forms {
+/* 横向轨道：两块 pane 叠在同一位置，靠 transform 左右换页（见 openspec: auth-panel）。
+   非激活块用 absolute 叠上去，激活块留在文档流里撑开轨道高度——
+   这样既能量到"新内容的自然高度"，又能让两块同时在场完成交叉。 */
+.auth-track {
   position: relative;
+  overflow: hidden;
+  will-change: height;
+}
+
+.auth-pane {
+  position: relative;
+  width: 100%;
+  will-change: transform;
 }
 
 .auth-pane[data-active="false"] {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  visibility: hidden;
+  width: 100%;
   pointer-events: none;
+}
+
+/* 被藏住的那块不能用 visibility:hidden —— 它会让 transform 的起始值在切换瞬间
+   被浏览器按"不可见"重算，实测导致换页动画的起点错乱（注册页起点是 0 而不是右侧）。
+   改为只挡住指针与 Tab，视觉上由轨道的 overflow:hidden 裁掉。 */
+.auth-pane[aria-hidden="true"] {
+  pointer-events: none;
+  user-select: none;
+}
+
+.auth-pane[aria-hidden="false"] {
+  pointer-events: auto;
+}
+
+/* 非激活块里的可聚焦元素从 Tab 序里摘掉，避免焦点跑到视野外的表单上 */
+.auth-pane[aria-hidden="true"] :is(input, button, a, select, textarea) {
+  visibility: hidden;
+}
+
+.auth-pane[aria-hidden="false"] :is(input, button, a, select, textarea) {
+  visibility: visible;
+}
+
+/* 页面变体（/login、/register）：卡片里不放面板自己的纸底与括号 */
+.auth-switcher[data-variant="page"] {
+  margin-top: 1.2rem;
+}
+
+.auth-switcher[data-variant="page"] .auth-tablist {
+  gap: 1.8rem;
+}
+
+/* ---------- 注册两步 ---------- */
+
+/* 只给读屏看的文本：视觉上不占位，但会被朗读。
+   用于给纯数字的步骤指示补一句完整说明（否则"01 02"会被连读）。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.register-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--w-mute);
+}
+
+.register-step {
+  color: color-mix(in srgb, var(--w-ink) 38%, transparent);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+}
+
+.register-step[data-current="true"] {
+  color: var(--w-signal);
+}
+
+/* 两个步骤之间的连线：走过的部分点亮 */
+.register-step-sep {
+  width: 1.4rem;
+  height: 1px;
+  background: var(--w-line);
+}
+
+.register-step-label {
+  margin-left: 0.4rem;
+  color: var(--w-mute);
+}
+
+/* 步骤内的错误：就地说明，不用弹窗（弹窗会遮住刚填的字段） */
+.register-error {
+  margin: 0.2rem 0 0.6rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--w-signal-2) 90%, var(--w-ink));
+  border-left: 2px solid var(--w-signal-2);
+  background: color-mix(in srgb, var(--w-signal-2) 6%, transparent);
+}
+
+/* 「上一步」比主按钮弱：无底色、只有一条下划线 */
+.btn-back {
+  display: block;
+  width: 100%;
+  margin-top: 0.55rem;
+  padding: 0.35rem;
+  background: none;
+  border: none;
+  color: var(--w-mute);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.btn-back:hover:not(:disabled) {
+  color: var(--w-ink);
+}
+
+.btn-back:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 面板左缘的竖向刻度：与站点滚动条同一套语言，让表单读起来像仪表的一部分 */
+.auth-ruler {
+  position: absolute;
+  top: 0.9rem;
+  bottom: 0.9rem;
+  left: 0.42rem;
+  width: 1px;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--w-ink) 16%, transparent) 0 1px,
+    transparent 1px 8px
+  );
 }
 
 /* 面板内的控件对齐欢迎页的语言：直角、无阴影、切角主按钮 */

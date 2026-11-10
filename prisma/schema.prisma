@@ -100,3 +100,32 @@ model Image {
   @@index([usage, createdAt])
   @@index([hash])
 }
+
+/// 站内问答用的文档块（见 openspec: add-ai-qa）。
+///
+/// 每篇已发布文章按 h2/h3 切成若干块，提问时先检索命中块，再让模型只依据这些块作答。
+/// 两块检索实现共用这张表：全文检索走 text + GIN 索引，向量检索走 embedding 列。
+///
+/// embedding 用 Unsupported：pgvector 是可选扩展，本地 Windows 的 PG 18 装不上它，
+/// 声明成 vector(1024) 会让没有扩展的库连客户端都生成不出来。所以：
+///   - Prisma 里它是一个不参与类型检查的列（读写都走 $queryRaw / $executeRaw）；
+///   - 迁移里用 DO $$ ... EXCEPTION ... $$ 包住，没有扩展时跳过而不是让整条迁移失败。
+/// 维度 1024 由 qwen3.7-text-embedding-flash 实测确定。
+model DocChunk {
+  id        String   @id @default(cuid())
+  postId    String
+  slug      String // 冗余一份，检索命中后直接拼链接，不用再 join
+  postTitle String // 同上：回答里要显示来源标题
+  order     Int // 文章内第几块，从 0 开始
+  heading   String? // 所属小节标题；块首也会带上，供模型理解上下文
+  text      String   @db.Text
+  chars     Int // 字数，用于切块质量检查与统计
+  /// 向量列：存在但 Prisma 不管理其类型，读写都走原生 SQL
+  embedding Unsupported("vector(1024)")?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([postId, order])
+  @@index([postId])
+  @@index([slug])
+}

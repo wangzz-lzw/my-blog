@@ -1,4 +1,4 @@
-import { RegisterForm } from "@/components/RegisterForm";
+import { AuthCard } from "@/components/AuthCard";
 
 export default async function RegisterPage({
   searchParams,
@@ -15,5 +15,5 @@ export default async function RegisterPage({
       ? returnTo
       : "/";
 
-  return <RegisterForm returnTo={safeReturnTo} />;
+  return <AuthCard initialTab="register" returnTo={safeReturnTo} />;
 }

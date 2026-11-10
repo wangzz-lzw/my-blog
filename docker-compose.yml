@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgres:16-alpine
+    # 用自带 pgvector 的镜像（站内问答的向量检索需要它）。
+    # 同为 PostgreSQL 16，数据目录格式一致，pgdata 卷可直接沿用，不需要重建库。
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: blog

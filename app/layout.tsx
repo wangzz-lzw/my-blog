@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
 import { RootScroll } from "@/components/ui/RootScroll";
+import { AskLauncher } from "@/components/ask/AskLauncher";
 import "./globals.css";
 import "./redesign.css";
 import { SITE_NAME } from "@/lib/site";
@@ -37,6 +38,8 @@ export default function RootLayout({
             这样全站（含页面级）才能用同一套自绘滚动条 */}
         <FeedbackProvider>
           <RootScroll>{children}</RootScroll>
+          {/* 全站问答入口：挂在根布局，欢迎页也有 */}
+          <AskLauncher />
         </FeedbackProvider>
       </body>
     </html>

@@ -1,4 +1,4 @@
-import { LoginForm } from "@/components/LoginForm";
+import { AuthCard } from "@/components/AuthCard";
 
 export default async function LoginPage({
   searchParams,
@@ -15,5 +15,5 @@ export default async function LoginPage({
       ? returnTo
       : "/admin";
 
-  return <LoginForm returnTo={safeReturnTo} />;
+  return <AuthCard initialTab="login" returnTo={safeReturnTo} />;
 }
