@@ -161,12 +161,19 @@ docker compose up -d --build             # 首次手动起一次，确认可访�
 | Secret | 说明 | 示例 |
 |---|---|---|
 | `SSH_HOST` | 服务器 IP / 域名 | `1.2.3.4` |
-| `SSH_USER` | SSH 用户（建议非 root） | `deploy` |
+| `SSH_USER` | SSH 用户 | `root` |
 | `SSH_KEY` | 该用户私钥全文（`-----BEGIN OPENSSH PRIVATE KEY-----`，无 passphrase） | |
 | `SSH_PORT` | 可选，默认 22 | `22` |
 | `DEPLOY_PATH` | 服务器上的项目目录 | `/opt/my-blog` |
 
-SSH 公钥需追加到服务器 `~/.ssh/authorized_keys`；该用户要有 `docker` 权限（`usermod -aG docker deploy`）。
+SSH 公钥需追加到对应用户的 `authorized_keys`：**`root` 用户是 `/root/.ssh/authorized_keys`**，
+普通用户是 `/home/<user>/.ssh/authorized_keys`。
+
+用普通用户时需要加入 `docker` 组（`usermod -aG docker deploy`）；**用 `root` 不需要**。
+
+> 以 `root` 部署时，若部署目录此前由其他用户创建，Git 2.35+ 会因
+> `detected dubious ownership` 拒绝操作——流水线已自动把 `DEPLOY_PATH` 登记进
+> `safe.directory`，无需手动处理。
 
 ### 3. 使用
 

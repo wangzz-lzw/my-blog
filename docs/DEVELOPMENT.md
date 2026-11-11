@@ -888,6 +888,15 @@ push master / 手动触发
 需要的 Secrets：`SSH_HOST`（必须是公网 IP）、`SSH_USER`、`SSH_KEY`（无 passphrase）、
 `SSH_PORT`（可选）、`DEPLOY_PATH`。
 
+**SSH 用户与公钥位置**：公钥要放到对应用户的 `authorized_keys` 里——
+`root` 是 `/root/.ssh/authorized_keys`，普通用户是 `/home/<user>/.ssh/authorized_keys`。
+用 `root` 部署时不必配 `docker` 组（本来就是）；用普通用户则需 `usermod -aG docker <user>`。
+
+以 `root` 部署时有一个 Git 层面的坑：若 `DEPLOY_PATH` 里的仓库归其他用户所有
+（比如先前用 `deploy` 用户拉过），Git 2.35+ 会拒绝操作并报
+`fatal: detected dubious ownership in repository`。流水线在 `git fetch` 之前会自动执行
+`git config --global --add safe.directory "$DEPLOY_PATH"`，不需要手工处理。
+
 服务器上**不要手改代码**，流水线 `git reset --hard` 会全部覆盖；`.env` 在 `.gitignore`
 和 `.dockerignore` 里，不会被覆盖也不会进镜像。
 

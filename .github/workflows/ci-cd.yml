@@ -54,6 +54,11 @@ jobs:
           echo "SSH_KEY 含 BEGIN: $(printf '%s' "$KEY" | grep -c 'BEGIN OPENSSH PRIVATE KEY' || true)"
           echo "SSH_KEY 含 CRLF: $(printf '%s' "$KEY" | tr -cd '\r' | wc -c)"
 
+          if [ "${SSH_USER}" = "root" ]; then
+            echo "::: 使用 root 部署：公钥在 /root/.ssh/authorized_keys"
+            echo "::: 注意：若部署目录曾由其他用户创建，git 会因 safe.directory 拒绝操作（脚本内已自动处理）"
+          fi
+
       - name: 网络连通性检查
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -81,9 +86,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -l -f ~/.ssh/deploy_key || (echo "私钥解析失败：请重新粘贴完整私钥" && exit 1)
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/authorized_keys
+          chmod 600 ~/.ssh/authorized_keys
+          ssh-keygen -l -f ~/.ssh/authorized_keys || (echo "私钥解析失败：请重新粘贴完整私钥" && exit 1)
 
       - name: SSH 部署（拉代码 + docker compose 重建）
         env:
@@ -97,7 +102,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" \
+          ssh -i ~/.ssh/authorized_keys -p "$SSH_PORT" \
             -o IdentitiesOnly=yes \
             -o BatchMode=yes \
             -o StrictHostKeyChecking=accept-new \
@@ -106,16 +111,23 @@ jobs:
             "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_BRANCH='${DEPLOY_BRANCH}' bash -s" <<'REMOTE'
           set -euo pipefail
 
+          echo "当前用户: $(whoami)  HOME: $HOME"
+          echo "SSH 公钥目录: $HOME/.ssh/authorized_keys"
+
           if [ ! -d "$DEPLOY_PATH" ]; then
             echo "❌ 部署目录不存在: $DEPLOY_PATH"
-            echo "当前用户: $(whoami)   HOME: $HOME"
             echo "候选目录："
-            ls -d "$HOME/opt/my-blog" /opt/my-blog /home/*/opt/my-blog 2>/dev/null || true
+            ls -d "$HOME/opt/my-blog" /opt/my-blog /root/opt/my-blog /home/*/opt/my-blog 2>/dev/null || true
             echo "→ 请把 GitHub Secret 的 DEPLOY_PATH 改成实际路径"
             exit 1
           fi
 
           cd "$DEPLOY_PATH"
+
+          # 以 root 部署时，若仓库目录属于其他用户（例如之前用 deploy 用户拉过代码），
+          # git 2.35+ 会报 "detected dubious ownership" 并拒绝所有操作。
+          # 这里把部署目录登记到 safe.directory（幂等，重复执行不会产生重复项）。
+          git config --global --add safe.directory "$DEPLOY_PATH" </dev/null 2>/dev/null || true
 
           echo "==> 拉取最新代码"
           git fetch --prune origin
