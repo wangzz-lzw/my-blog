@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
+import { syncPostIndexSafe } from "@/lib/rag/index";
 import { slugify } from "@/lib/slug";
 import { TagError, resolveTagRefs } from "@/lib/tags";
 
@@ -61,6 +62,9 @@ export async function POST(req: NextRequest) {
       tags: { connect: tagRefs },
     },
   });
+
+  // 同步检索索引：已发布才建块，草稿不建（见 openspec: rag-indexing）
+  await syncPostIndexSafe(post.id, { published });
 
   return NextResponse.json({ id: post.id }, { status: 201 });
 }

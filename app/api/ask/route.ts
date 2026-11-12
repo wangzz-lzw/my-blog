@@ -124,6 +124,17 @@ export async function POST(req: NextRequest) {
 
         // 【关键】分数不够就不调模型 —— 拒答是代码的确定性行为
         if (chunks.length === 0 || top < threshold) {
+          // 诊断日志：`hits=0`（索引空/没命中）与「有命中但分数低」（阈值偏严）
+          // 是两种完全不同的故障，却都表现为同一个「不知道」。一行日志就能分开。
+          console.log("[ask] refused", {
+            mode: retriever.mode,
+            topScore: Number(top.toFixed(4)),
+            threshold,
+            hits: chunks.length,
+            indexEmpty: chunks.length === 0,
+            question: question.slice(0, 60),
+          });
+
           const topics = await listTopics();
           send({ type: "sources", sources: [] });
           send({ type: "stage", stage: "refused" });

@@ -709,17 +709,72 @@ body { height: 100dvh; overflow: hidden }
 
 ```
 react-markdown + remark-gfm + remark-breaks
+  → rehype-raw（内联 HTML 解析成节点，必须最早，见下）
   → rehype-slug（标题 id，供锚点）
   → rehype-autolink-headings（标题后 # 链接）
   → rehype-external-links（外链 target=_blank + rel=noopener）
   → rehype-highlight（服务端高亮）
   → rehype-source-line（块级元素标 data-src = 源码起始行，供后台分屏联动）
+  → rehype-sanitize（白名单过滤，必须最后）
   → 自定义 pre → CodeBlock（语言标注 + 横向 ScrollArea + 复制；data-src 需显式透传）
 ```
 
 ⚠️ unified 的 `.use()` 只能接收「插件函数」或 `[函数, options]`。
 直接传**已经实例化的插件**会在 freeze 阶段被无参调用而 500 —— 这条踩过一次，
 `scripts/md-test2.mjs` 就是当时定位问题的独立复现脚本，别删。
+
+#### 内联 HTML：为什么要 raw、为什么必须配 sanitize
+
+从网页复制内容粘进 Markdown 时，剪贴板常带内联 HTML：
+
+```html
+<font style="color:rgb(79,79,79);background-color:rgb(238,240,244);">actions.js</font>
+```
+
+没有 `rehype-raw` 时，`react-markdown` 把原始 HTML 当文本转义，读者会看到尖括号与 `style=`。
+加了 raw 之后这些标签才会被真正解析成元素。
+
+**`rehype-raw` 与 `rehype-sanitize` 是一个决定，不是两个。** raw 会把 HTML 真的送进 DOM，
+`<script>`、`onerror=` 就能在读者浏览器执行。文章正文虽然只有管理员能写
+（`app/api/posts/route.ts` 走 `getAdminSession`），但误粘贴与账号被盗仍然成立。
+只合入 raw 不合入 sanitize 是漏洞。
+
+#### 插件顺序是硬约束
+
+两个位置不能动：
+
+1. **`rehypeRaw` 必须在 `rehypeHighlight` 之前。** highlight 会把代码切成大量
+   `<span class="hljs-*">`；之后 raw 再想把这些 hast 节点序列化回 HTML 重新解析，
+   会直接抛 `Cannot compile 'code' node`，结果是代码块的 class 全丢、高亮塌掉。
+   （实测踩过：class 变成空字符串，`hljs` 与 `language-*` 一起消失。）
+2. **`rehypeSanitize` 必须在所有会产出 HTML 的插件之后**，否则它看不到那些节点，等于没过滤。
+
+#### sanitize 白名单的两个关键点
+
+- **`className` 必须放行，且要用字符串写法 `["className"]`。**
+  用元组写法 `[["className", {}]]` 是「带校验」的语义，实测会把多值 class 过滤掉一部分
+  （`defaultSchema` 对 `code` 就是这么写的，代价是只剩 `language-*`、`hljs` 丢失）。
+  高亮、标题锚点、`CodeBlock` 的语言判断全都依赖 class。
+- **`style` 整类丢弃。** `<font style="...">` 这类「样式包裹但文字有用」的内容，
+  去掉 style 后退化成普通文字，正好是想要的结果；而 `position:fixed`、`background:url()`
+  这类表达力太强，不该允许出现在文章里。
+
+#### 代码块是禁区
+
+代码里的 `<class '...'>`、`<div>` 是**内容**，不是标签。库里真实存在
+Python 输出样例 `<class 'langchain_deepseek.chat_models.ChatDeepSeek'>`。
+任何「全文正则去标签」的实现都会破坏它，所以清洗与导入规整都逐行扫描并跟踪 fence 状态
+（`lib/markdown-import.ts` 的 `normalizeInlineHtml`）。
+
+#### 存量清洗
+
+```bash
+npx tsx --env-file=.env scripts/clean-post-html.ts          # dry-run，只报告
+npx tsx --env-file=.env scripts/clean-post-html.ts --write  # 确认后写回
+```
+
+默认不写库：清洗改的是内容资产、不可逆，先看差异再决定。脚本复用导入链路的同一套
+`normalizeInlineHtml`，保证「导入时处理」与「事后清洗」行为一致。
 
 ### 11.3 标签是受控词表
 
@@ -831,6 +886,59 @@ slug 与「所有 slug + 所有 aliases」共用一个命名空间。
 限流是进程内 `Map<userId, timestamps[]>`，10 次/分钟——单实例部署够用，多实例会各算各的。
 
 前端失败只提示、不阻断编辑与保存；成功才覆盖摘要与标签。
+
+### 11.8 站内问答的检索索引（`lib/rag/index.ts`）
+
+问答要能答，前提是 `DocChunk` 表里有东西。这张表**不是自动就有数据的**，
+由 `lib/rag/index.ts` 维护，三条路径共用同一份实现：
+
+| 路径 | 触发时机 | 调用 |
+|---|---|---|
+| 启动回填 | 容器启动时（`Dockerfile` 的 `CMD` 第 3 步） | `reindexAll()` |
+| CLI | 手工执行 `scripts/backfill-chunks.ts` | `reindexAll()` |
+| 写接口 | 新建 / 更新 / 删除文章 | `syncPostIndexSafe()` |
+
+`syncPostIndexSafe` 里的分支：**已发布 → 重建块；草稿 → 删掉该文章的块**。
+草稿必须移除，否则未发布内容会被问答检索到并引用——那是内容泄露，不只是质量问题。
+
+#### 为什么三处必须共用一份实现
+
+切块入库有若干容易分叉的细节：按 `[postId, order]` upsert、正文变短时删多余旧块、
+更新时同步 slug 与标题。三处各写一遍，最终一定表现成「某个入口存进去的文章检索不到」，
+而这种问题在界面上只显示为「不知道」，极难定位。
+
+#### 启动回填
+
+```
+1/4 migrate deploy
+2/4 db seed
+3/4 backfill-chunks.ts --quiet   ← 新增
+4/4 npm run start
+```
+
+- 放在 `seed` **之后**：seed 可能创建示例文章，顺序反了会漏掉它们。
+- 失败**不阻断启动**（有 `|| echo` 兜底）：站点浏览不该因为问答索引而不可用。
+- `--quiet` 仍会打印一行摘要——完全无声会让「索引到底建没建」变成只能靠猜的问题。
+- 文章量变大后可用 `SKIP_RAG_BACKFILL=1` 跳过，改由人工/定时任务维护。
+
+#### 两个容易踩的部署坑
+
+1. **runner 阶段必须 COPY `scripts/` 和 `lib/`**。回填脚本依赖 `lib/rag/*`，
+   缺了会 `MODULE_NOT_FOUND`；而那条命令被 `|| echo` 兜住，
+   表现成「服务起来了但问答永远答不出」，比直接崩溃更难查。
+2. **`tsx` 要能解析 `@/` 别名**，靠的是 runner 里也有的 `tsconfig.json`。
+
+#### 拒答时的诊断日志
+
+`/api/ask` 在拒答分支会打印：
+
+```
+[ask] refused { mode, topScore, threshold, hits, indexEmpty, question }
+```
+
+`hits=0`（索引空 / 完全没命中）与「有命中但分数低于阈值」是两种完全不同的故障，
+却都表现为同一个「不知道」。这行日志是区分它们的唯一手段——
+线上「问啥都是不知道」最初就是靠 `indexEmpty` 才定位到索引没建的。
 
 ---
 

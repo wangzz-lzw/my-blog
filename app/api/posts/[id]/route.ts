@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
+import { removePostIndex, syncPostIndexSafe } from "@/lib/rag/index";
 import { slugify } from "@/lib/slug";
 import { TagError, resolveTagRefs } from "@/lib/tags";
 
@@ -71,6 +72,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
     },
   });
 
+  // 同步检索索引：发布重建块、转草稿清掉块（见 openspec: rag-indexing）。
+  // 正文变短时多出来的旧块也会在 reindexPost 里被清理，避免检索到已删内容。
+  await syncPostIndexSafe(post.id, { published });
+
   return NextResponse.json({ id: post.id });
 }
 
@@ -82,5 +87,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
 
   await prisma.post.delete({ where: { id } });
+
+  // 清掉该文章的索引块，否则检索会命中已删除的文章（见 openspec: rag-indexing）
+  await removePostIndex(id);
+
   return NextResponse.json({ ok: true });
 }

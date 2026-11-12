@@ -5,6 +5,8 @@ import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypeExternalLinks from "rehype-external-links";
 import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { CodeBlock } from "@/components/CodeBlock";
 import { toSiteImageUrl } from "@/lib/image-url";
 
@@ -14,8 +16,81 @@ import { toSiteImageUrl } from "@/lib/image-url";
  * - rehype：slug（标题锚点）→ autolink-headings（悬停 #）→ external-links（新标签页）
  *   → highlight（代码高亮，ignoreMissing：无语言/未知语言静默跳过）
  *   → source-line（块级元素标源码起始行，供后台分屏联动用）
+ *   → raw（把正文里的内联 HTML 解析成节点）→ sanitize（过滤危险节点）
  * - 组件映射：pre → 终端风代码卡（复制按钮）；a → 外链视觉标记
+ *
+ * 为什么需要 raw：从网页复制内容粘进 Markdown 时，剪贴板常带内联 HTML，
+ * 典型如 `<font style="color:rgb(79,79,79)">actions.js</font>`。
+ * react-markdown 默认把原始 HTML 当文本转义，读者会看到尖括号和 style 属性。
+ *
+ * 为什么 raw 必须配 sanitize：raw 会把 HTML 真的送进 DOM，`<script>`、`onerror=`
+ * 这类内容就能在读者浏览器执行。文章正文虽然只有管理员能写，但误粘贴与账号被盗
+ * 都仍然成立，所以这两件事是一个决定，不能只装 raw。
+ *
+ * 两者顺序不能反：sanitize 必须在 raw 之后，否则它看不到 HTML 节点，等于没过滤。
  */
+
+/**
+ * 内联 HTML 的白名单。
+ *
+ * 裁剪原则是「按展示需要」，不是「按 HTML 规范完整」：
+ * - 保留 `className`：rehype-highlight 给 code 加 `hljs language-xxx`，
+ *   autolink-headings 给锚点加 `heading-anchor`，组件映射靠 `language-*` 判断语言。
+ *   拦住 class 会让代码高亮、标题锚点、语言标签一起失效。
+ * - 丢掉 `style`：`<font style="...">` 这类「样式包裹但文字有用」的内容，
+ *   去掉 style 后退化成普通文字，正是想要的结果。
+ * - 丢掉所有 `on*`：defaultSchema 本来就不含，这里显式说明是刻意的。
+ * - 去掉 `input`：defaultSchema 允许它，但文章正文不需要表单控件。
+ */
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames ?? []).filter((t) => t !== "input"),
+    // 复制粘贴常见但 defaultSchema 未收录的展示性标签
+    "font",
+    "mark",
+    "figure",
+    "figcaption",
+    "center",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    // 全局放行 class：高亮、锚点、CodeBlock 都依赖它。
+    // 用字符串 "className" 而不是 ["className", {}]：后者是「带校验的元组」写法，
+    // 实测会把 hljs 这类多值 class 过滤掉一部分（defaultSchema 对 code 就是这种写法，
+    // 结果只剩 language-*，hljs 丢了）。字符串写法放行全部值。
+    "*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
+    code: ["className"],
+    pre: ["className"],
+    span: ["className"],
+    div: ["className"],
+    table: ["className"],
+    thead: ["className"],
+    tbody: ["className"],
+    tr: ["className"],
+    th: ["className"],
+    td: ["className"],
+    h1: ["className"],
+    h2: ["className"],
+    h3: ["className"],
+    h4: ["className"],
+    h5: ["className"],
+    h6: ["className"],
+    // 注意：这里必须**整体覆盖** a 的属性规则，不能 `...defaultSchema.attributes.a`
+    // 再追加 "className" —— defaultSchema 里有一条 ["className", "data-footnote-backref"]，
+    // 它把 className 限制成「只能是 data-footnote-backref 这个值」；只要这条还在，
+    // 无论怎么追加都解不开限制，autolink-headings 加的 heading-anchor 会被剥光（实测）。
+    a: ["className", "href"],
+    img: [...(defaultSchema.attributes?.img ?? []), "className"],
+    font: ["color", "size", "face"],
+  },
+  // 协议白名单：不含 javascript: / data:（defaultSchema 本就不含，这里显式收窄）
+  protocols: {
+    ...defaultSchema.protocols,
+    href: ["http", "https", "mailto"],
+    src: ["http", "https"],
+  },
+};
 type HastNode = {
   tagName?: string;
   type?: string;
@@ -138,6 +213,11 @@ export function Markdown({ children }: { children: string }) {
       // 必须传「插件函数 + options」，不能传已实例化的插件（实例会被
       // 无参调用，transformer 收到 undefined tree 直接 500）
       rehypePlugins={[
+        // 【顺序很重要】内联 HTML 必须尽早解析成节点，且必须在 highlight 之前：
+        // rehype-highlight 会把代码切成大量 <span class="hljs-*">，之后 rehype-raw
+        // 再想把这些 hast 节点序列化回 HTML 重新解析会直接报
+        // "Cannot compile `code` node"，class 全丢、代码块塌掉（实测踩到）。
+        rehypeRaw,
         rehypeSlug,
         [
           rehypeAutolinkHeadings,
@@ -160,6 +240,8 @@ export function Markdown({ children }: { children: string }) {
         rehypeHighlight,
         // 放在最后：等 highlight 把 pre>code 改造完再标行号，位置才对应真实块
         rehypeSourceLine,
+        // 安全过滤必须在所有会产出 HTML 的插件之后
+        [rehypeSanitize, sanitizeSchema],
       ]}
       components={components}
     >
